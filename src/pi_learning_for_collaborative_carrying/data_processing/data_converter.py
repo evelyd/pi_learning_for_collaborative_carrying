@@ -121,12 +121,13 @@ class DataConverter:
                 # Assumes wxyz format
                 quaternions = [utils.normalize_quaternion(quat) for quat in np.squeeze(mocap_data_cleaned['node' + str(item['node_number'])]['orientation']['data'][start_time_index:])]
                 norms = [np.linalg.norm(quat) for quat in quaternions]
+                angular_velocities = np.squeeze(mocap_data_cleaned['node' + str(item['node_number'])]['angVel']['data'][start_time_index:])
 
                 # Check if norms contain any zeros
                 if any(norm == 0 for norm in norms):
                     raise ValueError("One or more quaternions have zero norm and cannot be normalized")
 
-                task = motion_data.SO3Task(name=key, orientations=quaternions)
+                task = motion_data.SO3Task(name=key, orientations=quaternions, angular_velocities=angular_velocities)
                 motiondata.SO3Tasks.append(asdict(task))
 
             # Store gravity task data

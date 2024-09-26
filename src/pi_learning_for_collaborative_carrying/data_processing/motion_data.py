@@ -19,13 +19,13 @@ class GravityTask:
     name: str
     orientations: List[float]
 
-
 @dataclass
 class SO3Task:
     """Class for storing a sequence of orientations of an orientation task."""
 
     name: str
     orientations: List[float]
+    angular_velocities: List[float]
 
 @dataclass
 class R3Task:
@@ -78,7 +78,9 @@ class MocapMetadata:
                  task_type: str,
                  frame: str,
                  node_number: int,
-                 IMU_R_link: Rotation) -> None:
+                 IMU_R_link: Rotation,
+                 force_threshold: float,
+                 weight: List) -> None:
         """Describe the task."""
 
         self.metadata[task_name] = {
@@ -86,4 +88,6 @@ class MocapMetadata:
             'frame': frame,
             'node_number': node_number,
             'IMU_R_link': IMU_R_link,
+            'force_threshold': force_threshold,
+            'weight': weight
         }

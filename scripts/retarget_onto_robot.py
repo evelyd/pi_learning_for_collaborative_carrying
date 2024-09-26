@@ -65,8 +65,6 @@ assert model_loader.loadReducedModelFromFile(str(urdf_path), joint_names)
 # create KinDynComputationsDescriptor
 kindyn = idyn.KinDynComputations()
 assert kindyn.loadRobotModel(model_loader.model())
-# Set the floating base
-kindyn.setFloatingBase("root_link")
 
 # ===========================
 # INVERSE KINEMATICS SETTINGS
@@ -159,8 +157,18 @@ for task_name in qp_ik_params.get_parameter_vector_string("tasks"):
     else:
         IMU_R_link = Rotation.identity()
 
+    if "vertical_force_threshold" in str(qp_ik_params.get_group(task_name)):
+        force_threshold = qp_ik_params.get_group(task_name).get_parameter_float("vertical_force_threshold")
+    else:
+        force_threshold = 0.0
+
+    if "weight" in str(qp_ik_params.get_group(task_name)):
+        weight = qp_ik_params.get_group(task_name).get_parameter_vector_float("weight")
+    else:
+        weight = [0.0, 0.0, 0.0]
+
     # Add a new task to the metadata
-    metadata.add_task(task_name, task_type, frame, node_number, IMU_R_link)
+    metadata.add_task(task_name, task_type, frame, node_number, IMU_R_link, force_threshold, weight)
 
 # Instantiate the data converter
 converter = data_converter.DataConverter.build(mocap_filename=mocap_filename,

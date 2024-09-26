@@ -375,19 +375,12 @@ class WBGR:
                                        base_position=new_base_position,
                                        base_quaternion=new_base_quaternion)
 
-        #TODO in the BAF implementation, the joints are at 0 in t-pose, not when the arms are down (i guess that's just a difference in the shoulder roll)
-
-        # --------------------------------
         # Calibrate the robot at the beginning, assuming data starts at T-pose
-        # TODO check if this needs to go before or after initial reset of robot configuration
-
         # Calibrate the world yaw by computing the world to IMU world calibration matrices
         self.calibrate_world_yaw()
 
-        #calibration of nodes wrt world
+        # Calibration the nodes with respect to the world frame
         self.calibrate_all_with_world(ref_frame="data_LeftFoot")
-
-        # --------------------------------
 
         # Define the timestep size
         dt_planner = 0.01 #100 Hz
@@ -412,14 +405,13 @@ class WBGR:
 
             #TODO helper functions to update each type of task: orientation, gravity, joint lim, joint reg, and floor contact
 
-            # Update orientation and gravity targets
+            # Update orientation and gravity tasks
             for task in self.motiondata.SO3Tasks + self.motiondata.GravityTasks:
 
                 # Extract data for the update
                 group_name = task['name']
                 task_type = self.metadata.metadata[group_name]['type']
                 I_quat_IMU = np.array(task['orientations'][i])
-                I_R_IMU = Rotation.from_quat(utils.to_xyzw(I_quat_IMU))
                 IMU_R_link = self.metadata.metadata[group_name]['IMU_R_link']
 
                 # Compute the target link orientation in the world frame
@@ -427,17 +419,52 @@ class WBGR:
                 I_R_link = Rotation.from_matrix(self.calibration_matrices[group_name]) * Rotation.from_quat(utils.to_xyzw(I_quat_IMU)) * IMU_R_link
 
                 if task_type == 'SO3Task':
+                    # Compute the angular velocities in the calibrated frame
+                    I_omega_IMU = np.array(task['angular_velocities'][i])
+                    I_omega_link = Rotation.from_matrix(self.calibration_matrices[group_name]).as_matrix().dot(I_omega_IMU)
+
                     assert self.ik_solver.get_task(group_name).set_set_point(
-                    manif.SO3(quaternion=I_R_link.as_quat()), #TODO check the form, Rotation gives xyzw form
-                    manif.SO3Tangent().Zero()) #TODO use the velocity too
+                    manif.SO3(quaternion=I_R_link.as_quat()),
+                    manif.SO3Tangent(I_omega_link))
                 else: # for GravityTask
                     target_gravity_direction = I_R_link.inv().as_matrix()[:,0]
-                    # print("Gravity matrix:", I_R_link.inv().as_matrix())
-                    # input(target_gravity_direction)
                     assert self.ik_solver.get_task(group_name).set_set_point(
-                    target_gravity_direction) #TODO use the veloicty too
+                    target_gravity_direction)
 
-            #TODO update the other types of tasks
+            # Update R3Tasks
+            for task in self.motiondata.R3Tasks:
+                group_name = task['name']
+                task_type = self.metadata.metadata[group_name]['type']
+                frame_name = self.metadata.metadata[group_name]['frame']
+                threshold = self.metadata.metadata[group_name]['force_threshold']
+                weight = self.metadata.metadata[group_name]['weight']
+                force = task['forces'][i]
+
+                # Check if the vertical force indicates contact
+                if i > 0:
+                    previous_force = task['forces'][i-1]
+                else:
+                    previous_force = 0.0
+
+                # If the foot is in contact now but wasn't before, set the desired position to be the current ground position with z = 0
+                if force > threshold and previous_force <= threshold:
+                    self.ik_solver.set_task_weight(group_name, weight)
+                    I_H_frame = utils.idyn_transform_to_np(self.kindyn.getWorldTransform(frame_name))
+                    desired_position = np.array([I_H_frame[0,3], I_H_frame[1,3], 0.0]) #TODO check
+
+                # Else if the foot was in contact before but isn't now, set this task weight to 0 (i.e. turn it off)
+                elif force <= threshold and previous_force > threshold:
+                    self.ik_solver.set_task_weight(group_name, np.zeros(3))
+
+                # If the foot is in contact, update the desired position
+                assert self.ik_solver.get_task(group_name).set_set_point(desired_position)
+
+
+            # Update JointLimitsTask
+            assert self.ik_solver.get_task("JOINT_LIMITS_TASK").update()
+
+            # Update JointTrackingTask
+            assert self.ik_solver.get_task("JOINT_REG_TASK").set_set_point(np.array([0.] * len(self.joint_names)))
 
             # ========
             # SOLVE IK
