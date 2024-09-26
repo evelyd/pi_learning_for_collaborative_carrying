@@ -1,0 +1,215 @@
+tasks = [
+    "PELVIS_TASK",
+    "T8_TASK",
+    "RIGHT_UPPER_ARM_TASK",
+    "RIGHT_FORE_ARM_TASK",
+    "LEFT_UPPER_ARM_TASK",
+    "LEFT_FORE_ARM_TASK",
+    "RIGHT_UPPER_LEG_TASK",
+    "RIGHT_LOWER_LEG_TASK",
+    "LEFT_UPPER_LEG_TASK",
+    "LEFT_LOWER_LEG_TASK",
+    "RIGHT_TOE_TASK",
+    "LEFT_TOE_TASK",
+    "RIGHT_FOOT_TASK",
+    "LEFT_FOOT_TASK",
+    "JOINT_LIMITS_TASK",
+    "JOINT_REG_TASK",
+    "JOINT_VEL_LIMITS_TASK" #TODO put this back once blf 0.19.0 availabel via conda
+]
+
+[IK]
+verbosity = false
+robot_velocity_variable_name = "robot_velocity"
+
+[PELVIS_TASK]
+type = "SO3Task"
+weight_provider_type = "ConstantWeightProvider"
+priority = 1 #remove later
+frame_name = "data_Pelvis"
+kp_angular = 20.0
+node_number = 3
+weight = [1.0, 1.0, 1.0]
+rotation_matrix = [0.0, 1.0, 0.0,
+                   0.0, 0.0, -1.0,
+                   -1.0, 0.0, 0.0]
+
+[T8_TASK]
+type = "SO3Task"
+weight_provider_type = "ConstantWeightProvider"
+priority = 1
+frame_name = "data_T8"
+kp_angular = 20.0
+node_number = 6
+weight = [1.0, 1.0, 1.0]
+rotation_matrix = [0.0, 1.0, 0.0,
+                   0.0, 0.0, 1.0,
+                   1.0, 0.0, 0.0]
+
+[RIGHT_UPPER_ARM_TASK]
+type = "SO3Task"
+robot_velocity_variable_name = "robot_velocity"
+weight_provider_type = "ConstantWeightProvider"
+priority = 1
+frame_name = "data_RightUpperArm"
+kp_angular = 20.0
+node_number = 7
+weight = [1.0, 1.0, 1.0]
+
+[RIGHT_FORE_ARM_TASK]
+type = "SO3Task"
+robot_velocity_variable_name = "robot_velocity"
+weight_provider_type = "ConstantWeightProvider"
+priority = 1
+frame_name = "data_RightForeArm"
+kp_angular = 20.0
+node_number = 8
+weight = [1.0, 1.0, 1.0]
+
+[LEFT_UPPER_ARM_TASK]
+type = "SO3Task"
+robot_velocity_variable_name = "robot_velocity"
+weight_provider_type = "ConstantWeightProvider"
+priority = 1
+frame_name = "data_LeftUpperArm"
+kp_angular = 20.0
+node_number = 5
+weight = [1.0, 1.0, 1.0]
+
+[LEFT_FORE_ARM_TASK]
+type = "SO3Task"
+robot_velocity_variable_name = "robot_velocity"
+weight_provider_type = "ConstantWeightProvider"
+priority = 1
+frame_name = "data_LeftForeArm"
+kp_angular = 20.0
+node_number = 4
+weight = [1.0, 1.0, 1.0]
+
+[RIGHT_UPPER_LEG_TASK]
+type = "SO3Task"
+robot_velocity_variable_name = "robot_velocity"
+weight_provider_type = "ConstantWeightProvider"
+priority = 1
+frame_name = "data_RightUpperLeg"
+kp_angular = 20.0
+node_number = 11
+weight = [1.0, 1.0, 1.0]
+rotation_matrix = [1.0, 0.0, 0.0,
+                   0.0, 0.0, 1.0,
+                   0.0, -1.0, 0.0]
+
+[RIGHT_LOWER_LEG_TASK]
+type = "SO3Task"
+robot_velocity_variable_name = "robot_velocity"
+weight_provider_type = "ConstantWeightProvider"
+priority = 1
+frame_name = "data_RightLowerLeg"
+kp_angular = 20.0
+node_number = 12
+weight = [1.0, 1.0, 1.0]
+rotation_matrix = [1.0, 0.0, 0.0,
+                   0.0, 0.0, 1.0,
+                   0.0, -1.0, 0.0]
+
+[LEFT_UPPER_LEG_TASK]
+type = "SO3Task"
+robot_velocity_variable_name = "robot_velocity"
+weight_provider_type = "ConstantWeightProvider"
+priority = 1
+frame_name = "data_LeftUpperLeg"
+kp_angular = 20.0
+node_number = 9
+weight = [1.0, 1.0, 1.0]
+rotation_matrix = [1.0, 0.0, 0.0,
+                   0.0, 0.0, -1.0,
+                   0.0, 1.0, 0.0]
+
+[LEFT_LOWER_LEG_TASK]
+type = "SO3Task"
+robot_velocity_variable_name = "robot_velocity"
+weight_provider_type = "ConstantWeightProvider"
+priority = 1
+frame_name = "data_LeftLowerLeg"
+kp_angular = 20.0
+node_number = 10
+weight = [1.0, 1.0, 1.0]
+rotation_matrix = [1.0, 0.0, 0.0,
+                   0.0, 0.0, -1.0,
+                   0.0, 1.0, 0.0]
+
+[RIGHT_FOOT_TASK]
+type = "GravityTask"
+robot_velocity_variable_name = "robot_velocity"
+weight_provider_type = "ConstantWeightProvider"
+priority = 1
+target_frame_name = "data_RightFoot"
+kp = 20.0
+node_number = 2
+weight = [1.0, 1.0]
+rotation_matrix = [0.0, 1.0, 0.0,
+                   -1.0, 0.0, 0.0,
+                   0.0, 0.0, 1.0]
+
+[LEFT_FOOT_TASK]
+type = "GravityTask"
+robot_velocity_variable_name = "robot_velocity"
+weight_provider_type = "ConstantWeightProvider"
+priority = 1
+target_frame_name = "data_LeftFoot"
+kp = 20.0
+node_number = 1
+weight = [1.0, 1.0]
+rotation_matrix = [0.0, 1.0, 0.0,
+                   -1.0, 0.0, 0.0,
+                   0.0, 0.0, 1.0]
+
+[RIGHT_TOE_TASK]
+type = "R3Task"
+robot_velocity_variable_name = "robot_velocity"
+weight_provider_type = "ConstantWeightProvider"
+priority = 1
+frame_name = "r_foot_front"
+kp_linear = 60.0
+node_number = 2
+mask = [true, true, true]
+weight = [1.0, 1.0, 1.0]
+vertical_force_threshold = 60.0
+
+[LEFT_TOE_TASK]
+type = "R3Task"
+robot_velocity_variable_name = "robot_velocity"
+weight_provider_type = "ConstantWeightProvider"
+priority = 1
+frame_name = "l_foot_front"
+kp_linear = 60.0
+node_number = 1
+mask = [true, true, true]
+weight = [1.0, 1.0, 1.0]
+vertical_force_threshold = 60.0
+
+[JOINT_LIMITS_TASK]
+type = "JointLimitsTask"
+robot_velocity_variable_name = "robot_velocity"
+priority = 0
+use_model_limits = false
+sampling_time = 0.017
+k_limits = 1.0
+joints_list = ["l_knee", "r_knee", "l_ankle_pitch", "r_ankle_pitch", "l_ankle_roll", "r_ankle_roll"]
+upper_bounds = [0.001, 0.001, 0.001, 0.001, 100.0, 0.0]
+lower_bounds = [-0.001, -0.001, -0.001, -0.001, 0.0, -100.0]
+
+[JOINT_REG_TASK]
+type = "JointTrackingTask"
+weight_provider_type = "ConstantWeightProvider"
+priority = 1
+robot_velocity_variable_name = "robot_velocity"
+weight = 0.000001
+
+
+[JOINT_VEL_LIMITS_TASK]
+type = "JointVelocityLimitsTask"
+robot_velocity_variable_name = "robot_velocity"
+priority = 0
+upper_limit = 5.0
+lower_limit = -5.0

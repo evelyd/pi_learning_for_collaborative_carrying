@@ -1,0 +1,11 @@
+Dataset collected Tuesday, Sept 17, 2024
+
+Did not use HMG. Used mass 63 for Evelyn and 
+
+Used the humanSubject03_48dof.urdf model.
+
+Contains two pairs of data: one with the leader (evelyn) walking backward and the follower (cheng) following, and the other with the leader walking forward.
+
+Each set contains data where the two agents start in T-pose, then go to I-pose, bend to pick up a payload, stand back up and carry the payload while walking around. Each dataset is around 1 minute long and ends with the agents stopping, bending over to place the payload on the ground, and standing back up.
+
+Data is not aligned in time.
