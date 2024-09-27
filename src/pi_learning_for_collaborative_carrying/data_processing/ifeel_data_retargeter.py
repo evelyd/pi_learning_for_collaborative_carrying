@@ -10,7 +10,6 @@ import bipedal_locomotion_framework.bindings as blf
 import idyntree.swig as idyn
 from scipy.spatial.transform import Rotation
 import manifpy as manif
-import re
 
 import matplotlib as mpl
 mpl.rcParams['toolbar'] = 'None'
@@ -252,6 +251,7 @@ class WBGR:
     kindyn: idyn.KinDynComputations
     calibration_matrices = {}
     IMU_link_rotations = {}
+    initial_base_height: float
 
     @staticmethod
     def build(motiondata: motion_data.MotionData,
@@ -264,7 +264,8 @@ class WBGR:
               horizontal_feet: bool = False,
               straight_head: bool = False,
               wider_legs: bool = False,
-              robot_to_target_base_quat: List = None) -> "WBGR":
+              robot_to_target_base_quat: List = None,
+              initial_base_height: float = 0.0) -> "WBGR":
         """Build an instance of WBGR."""
 
         # Instantiate IKTargets
@@ -290,14 +291,14 @@ class WBGR:
         # print("after wider legs")
 
         return WBGR(#ik_targets=ik_targets,
-                    ik_solver=ik_solver, param_handler=param_handler, motiondata=motiondata, metadata=metadata, joint_names=joint_names, kindyn=kindyn, robot_to_target_base_quat=robot_to_target_base_quat)
+                    ik_solver=ik_solver, param_handler=param_handler, motiondata=motiondata, metadata=metadata, joint_names=joint_names, kindyn=kindyn, robot_to_target_base_quat=robot_to_target_base_quat, initial_base_height=initial_base_height)
 
     def calibrate_world_yaw(self):
         """Calibrate the world yaw by computing the world to IMU world calibration matrices."""
 
         # Set robot state with: joint pos, joint vel, base vel 0, base pose 0
         utils.reset_robot_configuration(kindyn=self.kindyn, joint_positions=np.array([0.]*len(self.joint_names)),
-                                       base_position=np.array([0.]*3),
+                                       base_position=np.array([0., 0., self.initial_base_height]),
                                        base_quaternion=np.array([0, 0, 0, 1]))
 
         # Loop through orientation targets
@@ -317,7 +318,11 @@ class WBGR:
             # Compute the calibration matrix for this link
             W_R_WIMU = W_R_link * (WIMU_R_IMU * IMU_R_link).inv()
 
-            # Save the calibration matrix
+            W_yaw_WIMU = W_R_WIMU.as_euler('xyz')[2]
+
+            W_R_yaw_WIMU = Rotation.from_euler('xyz', [0.0, 0.0, W_yaw_WIMU])
+
+            # Save the calibration matrix TODO cahnge back to just yaw
             self.calibration_matrices[group_name] = W_R_WIMU.as_matrix()
 
     def calibrate_all_with_world(self, ref_frame = ""):
@@ -325,14 +330,13 @@ class WBGR:
 
         # Set robot state with: joint pos, joint vel, base vel 0, base pose 0
         utils.reset_robot_configuration(kindyn=self.kindyn, joint_positions=np.array([0.]*len(self.joint_names)),
-                                       base_position=np.array([0.]*3),
+                                       base_position=np.array(np.array([0., 0., self.initial_base_height])),
                                        base_quaternion=np.array([0, 0, 0, 1]))
 
         secondary_calib = Rotation.identity()
 
         # If a reference frame is given, calibrate all nodes wrt that frame
         if ref_frame != "":
-            #TODO check this calculation
             secondary_calib = Rotation.from_matrix(utils.idyn_transform_to_np(self.kindyn.getWorldTransform(ref_frame))[:3,:3]).inv()
 
         # Loop through orientation targets
@@ -343,6 +347,7 @@ class WBGR:
             IMU_R_link = self.metadata.metadata[group_name]['IMU_R_link']
 
             # Get the rotation from the IMU to the link frame
+            # IMU_R_link = (W_R_WIMU * WIMU_R_IMU)^{T} * W_R_link
             W_R_WIMU = Rotation.from_matrix(self.calibration_matrices[group_name])
             WIMU_R_IMU = Rotation.from_quat(utils.to_xyzw(np.array(orientations[0])))
             W_R_link = Rotation.from_matrix(utils.idyn_transform_to_np(self.kindyn.getWorldTransform(frame_name))[:3,:3])
@@ -361,8 +366,8 @@ class WBGR:
         ik_solutions = []
 
         # Initialize the cumulative base and joint values at the first target value
-        new_base_position = np.array([0.]*3)
-        new_base_quaternion = np.array([0,0,0,1])
+        new_base_position = np.array([0., 0., self.initial_base_height])
+        new_base_quaternion = np.array([0,0,0,1]) #xyzw
         new_joint_positions = np.array([0.]*len(self.joint_names))
 
         # Initialize ik solution
@@ -370,10 +375,16 @@ class WBGR:
                                  base_quaternion=new_base_quaternion,
                                  joint_configuration=new_joint_positions)
 
+        # Store the first ik solution
+        ik_solutions.append(ik_solution)
+
         # Reset the idyn robot state
         utils.reset_robot_configuration(kindyn=self.kindyn, joint_positions=new_joint_positions,
                                        base_position=new_base_position,
                                        base_quaternion=new_base_quaternion)
+
+        # Get the height of the front foot frame off the ground
+        foot_height = utils.idyn_transform_to_np(self.kindyn.getWorldTransform("r_foot_front"))[2,3]
 
         # Calibrate the robot at the beginning, assuming data starts at T-pose
         # Calibrate the world yaw by computing the world to IMU world calibration matrices
@@ -392,6 +403,9 @@ class WBGR:
         base_quaternions = []
         base_angles = []
         joint_position_list = np.zeros(shape=(len(self.joint_names),len(self.motiondata.SampleDurations)))
+
+        # Initialize the simulator for integration
+        simulator = utils.Simulator(new_base_position, new_base_quaternion, new_joint_positions, dt_planner)
 
         for i in range(len(self.motiondata.SampleDurations)):
 
@@ -450,7 +464,7 @@ class WBGR:
                 if force > threshold and previous_force <= threshold:
                     self.ik_solver.set_task_weight(group_name, weight)
                     I_H_frame = utils.idyn_transform_to_np(self.kindyn.getWorldTransform(frame_name))
-                    desired_position = np.array([I_H_frame[0,3], I_H_frame[1,3], 0.0]) #TODO check
+                    desired_position = np.array([I_H_frame[0,3], I_H_frame[1,3], foot_height])
 
                 # Else if the foot was in contact before but isn't now, set this task weight to 0 (i.e. turn it off)
                 elif force <= threshold and previous_force > threshold:
@@ -490,29 +504,10 @@ class WBGR:
                 continue
             assert self.ik_solver.is_output_valid()
 
-            # Extract joint and base velocities from IK solution
-            ṡ_des = state.joint_velocity
-            W_ṗ_des_B = state.base_velocity.coeffs()[0:3]
-            W_ω_des_B = state.base_velocity.coeffs()[3:6]
-
-            # Integrate joint velocities to update joint positions
-            # this line is needed to avoid reassigning every joint position in the ik_solutions list in each iteration
-            current_joint_positions = new_joint_positions
-            new_joint_positions = current_joint_positions + dt_planner * ṡ_des
-
-            # Integrate base linear velocities to update base position
-            # this line is needed to avoid reassigning every base position in the ik_solutions list in each iteration
-            current_base_position = new_base_position
-            new_base_position = current_base_position + dt_planner * W_ṗ_des_B
-
-            # Integrate base angular velocities to update base orientation
-            if i > 0:
-                E = np.array([[-new_base_quaternion[1], new_base_quaternion[0], -new_base_quaternion[3], new_base_quaternion[2]],
-                            [-new_base_quaternion[2], new_base_quaternion[3], new_base_quaternion[0], -new_base_quaternion[1]],
-                            [-new_base_quaternion[3], -new_base_quaternion[2], new_base_quaternion[1], new_base_quaternion[0]]])
-                current_base_quaternion = new_base_quaternion
-                new_base_quaternion =  current_base_quaternion + (1/2) * dt_planner * E.T.dot(W_ω_des_B)
-
+            simulator.set_control_input(state.base_velocity.coeffs(), state.joint_velocity)
+            simulator.integrate()
+            new_base_position, new_base_quaternion, new_joint_positions = simulator.integrator.get_solution()
+            new_base_quaternion = utils.to_wxyz(new_base_quaternion.coeffs())
 
             # Update robot state in kindyn
             utils.reset_robot_configuration(self.kindyn, new_joint_positions, new_base_position, new_base_quaternion)
@@ -727,6 +722,7 @@ class KFWBGR(WBGR):
     """Class implementing the Kinematically-Feasible Whole-Body Geometric Retargeting (KFWBGR)."""
 
     kinematic_computations: KinematicComputations
+    initial_base_height: float
 
     @staticmethod
     def build(motiondata: motion_data.MotionData,
@@ -740,7 +736,8 @@ class KFWBGR(WBGR):
               robot_to_target_base_quat: List = None,
               kindyn: idyn.KinDynComputations = None,
               local_foot_vertices_pos: List = None,
-              feet_frames: Dict = None) -> "KFWBGR":
+              feet_frames: Dict = None,
+              initial_base_height: float = 0.0) -> "KFWBGR":
         """Build an instance of KFWBGR."""
 
         # Instantiate IKTargets
@@ -767,7 +764,7 @@ class KFWBGR(WBGR):
             kindyn=kindyn, local_foot_vertices_pos=local_foot_vertices_pos, feet_frames=feet_frames)
 
         return KFWBGR(ik_targets=ik_targets, ik_solver=ik_solver, joint_names=joint_names,
-                      kindyn=kindyn, robot_to_target_base_quat=robot_to_target_base_quat, kinematic_computations=kinematic_computations)
+                      kindyn=kindyn, robot_to_target_base_quat=robot_to_target_base_quat, initial_base_height=initial_base_height, kinematic_computations=kinematic_computations)
 
     def KF_retarget(self, plot_ik_solutions: bool) -> (List, List):
         """Apply Kinematically-Feasible Whole-Body Geometric Retargeting (KFWBGR)."""

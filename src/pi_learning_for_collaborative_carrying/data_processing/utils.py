@@ -19,6 +19,10 @@ import matplotlib as mpl
 mpl.rcParams['toolbar'] = 'None'
 import matplotlib.pyplot as plt
 
+import bipedal_locomotion_framework as blf
+import manifpy as manif
+import datetime
+
 # =================
 # RETARGETING UTILS
 # =================
@@ -29,6 +33,23 @@ class IKSolution:
     joint_configuration: np.ndarray
     base_position: np.array = dataclasses.field(default_factory=lambda: np.array([0.0, 0.0, 0.0]))
     base_quaternion: np.array = dataclasses.field(default_factory=lambda: np.array([1.0, 0.0, 0.0, 0.0]))
+
+class Simulator:
+    def __init__(self, initial_base_position, initial_base_quaternion, initial_joint_positions, dt):
+        self.system = blf.continuous_dynamical_system.FloatingBaseSystemKinematics()
+        self.system.set_state((initial_base_position,  manif.SO3(to_xyzw(initial_base_quaternion)), initial_joint_positions))
+
+        self.integrator = blf.continuous_dynamical_system.FloatingBaseSystemKinematicsForwardEulerIntegrator()
+        self.integrator.set_dynamical_system(self.system)
+        assert self.integrator.set_integration_step(dt)
+        self.dt = dt
+        self.zero = datetime.timedelta(milliseconds=0)
+
+    def set_control_input(self, base_velocity, joint_velocity):
+        self.system.set_control_input((base_velocity, joint_velocity))
+
+    def integrate(self):
+        self.integrator.integrate(self.zero, self.dt)
 
 def define_robot_to_target_base_quat(robot: str) -> List:
     """Define the robot-specific quaternions from the robot base frame to the target base frame."""
@@ -49,6 +70,17 @@ def define_robot_to_target_base_quat(robot: str) -> List:
         raise Exception("Quaternions from the robot to the target base frame only defined for iCubV2_5, iCubV3 and ergoCubV1.")
 
     return robot_to_target_base_quat
+
+def define_initial_base_height(robot: str) -> List:
+    """Define the robot-specific quaternions from the robot base frame to the target base frame."""
+
+    if robot == "ergoCubV1":
+        initial_base_height = 0.7754
+
+    else:
+        raise Exception("Initial base height only defined for ergoCubV1.")
+
+    return initial_base_height
 
 def define_feet_frames_and_links(robot: str) -> Dict:
     """Define the robot-specific feet frames and links."""
@@ -319,7 +351,7 @@ def visualize_retargeted_motion(timestamps: List,
         )
 
     with handle as viewer:
-        for i in range(1, len(ik_solutions)):
+        for i in range(0, len(ik_solutions)-1):
 
             ik_solution = ik_solutions[i]
 
@@ -359,7 +391,7 @@ def visualize_retargeted_motion(timestamps: List,
             viewer.sync()
             time.sleep(dt)
 
-            if i == 1:
+            if i == 0:
                 input("Start visualization")
 
     print("Visualization ended")

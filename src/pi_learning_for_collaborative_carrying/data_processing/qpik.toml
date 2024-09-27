@@ -15,7 +15,7 @@ tasks = [
     "LEFT_FOOT_TASK",
     "JOINT_LIMITS_TASK",
     "JOINT_REG_TASK",
-    "JOINT_VEL_LIMITS_TASK" #TODO put this back once blf 0.19.0 availabel via conda
+    "JOINT_VEL_LIMITS_TASK"
 ]
 
 [IK]
@@ -55,6 +55,10 @@ frame_name = "data_RightUpperArm"
 kp_angular = 20.0
 node_number = 7
 weight = [1.0, 1.0, 1.0]
+#TODO from teleop xml file, currently not working well
+rotation_matrix = [1.0, 0.0, 0.0,
+                   0.0, 0.0, 1.0,
+                   0.0, -1.0, 0.0]
 
 [RIGHT_FORE_ARM_TASK]
 type = "SO3Task"
@@ -65,6 +69,10 @@ frame_name = "data_RightForeArm"
 kp_angular = 20.0
 node_number = 8
 weight = [1.0, 1.0, 1.0]
+#TODO from teleop xml file, currently not working well
+rotation_matrix = [1.0, 0.0, 0.0,
+                   0.0, 0.0, 1.0,
+                   0.0, -1.0, 0.0]
 
 [LEFT_UPPER_ARM_TASK]
 type = "SO3Task"
@@ -75,6 +83,10 @@ frame_name = "data_LeftUpperArm"
 kp_angular = 20.0
 node_number = 5
 weight = [1.0, 1.0, 1.0]
+#TODO from teleop xml file, currently not working well
+rotation_matrix = [1.0, 0.0, 0.0,
+                   0.0, 0.0, -1.0,
+                   0.0, 1.0, 0.0]
 
 [LEFT_FORE_ARM_TASK]
 type = "SO3Task"
@@ -85,6 +97,10 @@ frame_name = "data_LeftForeArm"
 kp_angular = 20.0
 node_number = 4
 weight = [1.0, 1.0, 1.0]
+#TODO from teleop xml file, currently not working well
+rotation_matrix = [1.0, 0.0, 0.0,
+                   0.0, 0.0, -1.0,
+                   0.0, 1.0, 0.0]
 
 [RIGHT_UPPER_LEG_TASK]
 type = "SO3Task"
@@ -108,9 +124,13 @@ frame_name = "data_RightLowerLeg"
 kp_angular = 20.0
 node_number = 12
 weight = [1.0, 1.0, 1.0]
+# rotation_matrix = [1.0, 0.0, 0.0,
+#                    0.0, 0.0, 1.0,
+#                    0.0, -1.0, 0.0]
+#TODO calculated based on the above IMU_R_linkHuman, and the rotation from human to robot link orientation
 rotation_matrix = [1.0, 0.0, 0.0,
-                   0.0, 0.0, 1.0,
-                   0.0, -1.0, 0.0]
+                   0.0, 0.0, -1.0,
+                   0.0, 1.0, 0.0]
 
 [LEFT_UPPER_LEG_TASK]
 type = "SO3Task"
@@ -134,9 +154,14 @@ frame_name = "data_LeftLowerLeg"
 kp_angular = 20.0
 node_number = 10
 weight = [1.0, 1.0, 1.0]
+# rotation_matrix = [1.0, 0.0, 0.0,
+#                    0.0, 0.0, -1.0,
+#                    0.0, 1.0, 0.0]
+#TODO calculated based on the above IMU_R_linkHuman, and the rotation from human to robot link orientation
 rotation_matrix = [1.0, 0.0, 0.0,
-                   0.0, 0.0, -1.0,
-                   0.0, 1.0, 0.0]
+                   0.0, 0.0, 1.0,
+                   0.0, -1.0, 0.0]
+
 
 [RIGHT_FOOT_TASK]
 type = "GravityTask"

@@ -134,7 +134,8 @@ script_directory = os.path.dirname(os.path.abspath(__file__))
 mocap_filename = os.path.join(script_directory, mocap_filename)
 
 # Define the relevant data for retargeting purposes
-metadata = motion_data.MocapMetadata.build(start_time=14.38)
+# use time 17.19 for calibration with arms down, or 14.38 for calibration in t-pose
+metadata = motion_data.MocapMetadata.build(start_time=17.19)
 metadata.add_timestamp()
 
 # Add the tasks to which to assign the target orientation or force data
@@ -189,6 +190,8 @@ local_foot_vertices_pos = utils.define_foot_vertices(robot="ergoCubV1")
 # Define robot-specific quaternions from the robot base frame to the target base frame
 robot_to_target_base_quat = utils.define_robot_to_target_base_quat(robot="ergoCubV1")
 
+initial_base_height = utils.define_initial_base_height(robot="ergoCubV1")
+
 # Instantiate the retargeter
 if kinematically_feasible_base_retargeting:
     retargeter = ifeel_data_retargeter.KFWBGR.build(motiondata=motiondata,
@@ -203,7 +206,8 @@ if kinematically_feasible_base_retargeting:
                                                      robot_to_target_base_quat=robot_to_target_base_quat,
                                                      kindyn=kindyn,
                                                      local_foot_vertices_pos=local_foot_vertices_pos,
-                                                     feet_frames=feet_frames)
+                                                     feet_frames=feet_frames,
+                                                     initial_base_height=initial_base_height)
 else:
     retargeter = ifeel_data_retargeter.WBGR.build(motiondata=motiondata,
                                                    metadata=metadata,
@@ -215,7 +219,8 @@ else:
                                                    horizontal_feet=horizontal_feet,
                                                    straight_head=straight_head,
                                                    wider_legs=wider_legs,
-                                                   robot_to_target_base_quat=robot_to_target_base_quat)
+                                                   robot_to_target_base_quat=robot_to_target_base_quat,
+                                                   initial_base_height=initial_base_height)
 
 # Retrieve ik solutions
 if kinematically_feasible_base_retargeting:
