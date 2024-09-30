@@ -134,8 +134,8 @@ script_directory = os.path.dirname(os.path.abspath(__file__))
 mocap_filename = os.path.join(script_directory, mocap_filename)
 
 # Define the relevant data for retargeting purposes
-# use time 17.19 for calibration with arms down, or 14.38 for calibration in t-pose
-metadata = motion_data.MocapMetadata.build(start_time=17.19)
+# use time 17.19 for calibration with arms down, or 12.59 for calibration in t-pose
+metadata = motion_data.MocapMetadata.build(start_time=12.59)
 metadata.add_timestamp()
 
 # Add the tasks to which to assign the target orientation or force data

@@ -296,8 +296,13 @@ class WBGR:
     def calibrate_world_yaw(self):
         """Calibrate the world yaw by computing the world to IMU world calibration matrices."""
 
+        # Put arms in T pose
+        calib_joint_positions = np.array([0.]*len(self.joint_names))
+        calib_joint_positions[self.joint_names.index("l_shoulder_roll")] = np.pi/2
+        calib_joint_positions[self.joint_names.index("r_shoulder_roll")] = np.pi/2
+
         # Set robot state with: joint pos, joint vel, base vel 0, base pose 0
-        utils.reset_robot_configuration(kindyn=self.kindyn, joint_positions=np.array([0.]*len(self.joint_names)),
+        utils.reset_robot_configuration(kindyn=self.kindyn, joint_positions=calib_joint_positions,
                                        base_position=np.array([0., 0., self.initial_base_height]),
                                        base_quaternion=np.array([0, 0, 0, 1]))
 
@@ -328,8 +333,13 @@ class WBGR:
     def calibrate_all_with_world(self, ref_frame = ""):
         """Compute the secondary calibration and the imu to link rotations."""
 
+        # Put arms in T pose
+        calib_joint_positions = np.array([0.]*len(self.joint_names))
+        calib_joint_positions[self.joint_names.index("l_shoulder_roll")] = np.pi/2
+        calib_joint_positions[self.joint_names.index("r_shoulder_roll")] = np.pi/2
+
         # Set robot state with: joint pos, joint vel, base vel 0, base pose 0
-        utils.reset_robot_configuration(kindyn=self.kindyn, joint_positions=np.array([0.]*len(self.joint_names)),
+        utils.reset_robot_configuration(kindyn=self.kindyn, joint_positions=calib_joint_positions,
                                        base_position=np.array(np.array([0., 0., self.initial_base_height])),
                                        base_quaternion=np.array([0, 0, 0, 1]))
 
@@ -369,6 +379,8 @@ class WBGR:
         new_base_position = np.array([0., 0., self.initial_base_height])
         new_base_quaternion = np.array([0,0,0,1]) #xyzw
         new_joint_positions = np.array([0.]*len(self.joint_names))
+        new_joint_positions[self.joint_names.index("l_shoulder_roll")] = np.pi/2
+        new_joint_positions[self.joint_names.index("r_shoulder_roll")] = np.pi/2
 
         # Initialize ik solution
         ik_solution = utils.IKSolution(base_position=new_base_position,
