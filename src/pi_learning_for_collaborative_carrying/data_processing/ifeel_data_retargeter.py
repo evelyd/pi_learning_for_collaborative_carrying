@@ -487,10 +487,12 @@ class WBGR:
 
 
             # Update JointLimitsTask
-            assert self.ik_solver.get_task("JOINT_LIMITS_TASK").update()
+            if self.metadata.has_entry("JOINT_LIMITS_TASK"):
+                assert self.ik_solver.get_task("JOINT_LIMITS_TASK").update()
 
             # Update JointTrackingTask
-            assert self.ik_solver.get_task("JOINT_REG_TASK").set_set_point(np.array([0.] * len(self.joint_names)))
+            if self.metadata.has_entry("JOINT_REG_TASK"):
+                assert self.ik_solver.get_task("JOINT_REG_TASK").set_set_point(np.array([0.] * len(self.joint_names)))
 
             # ========
             # SOLVE IK

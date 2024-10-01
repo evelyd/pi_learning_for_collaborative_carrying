@@ -217,12 +217,9 @@ vertical_force_threshold = 60.0
 type = "JointLimitsTask"
 robot_velocity_variable_name = "robot_velocity"
 priority = 0
-use_model_limits = false
+use_model_limits = true
 sampling_time = 0.017
 k_limits = 1.0
-joints_list = ["l_knee", "r_knee", "l_ankle_pitch", "r_ankle_pitch", "l_ankle_roll", "r_ankle_roll"]
-upper_bounds = [0.001, 0.001, 0.001, 0.001, 100.0, 0.0]
-lower_bounds = [-0.001, -0.001, -0.001, -0.001, 0.0, -100.0]
 
 [JOINT_REG_TASK]
 type = "JointTrackingTask"

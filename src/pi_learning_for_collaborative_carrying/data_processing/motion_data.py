@@ -91,3 +91,7 @@ class MocapMetadata:
             'force_threshold': force_threshold,
             'weight': weight
         }
+
+    def has_entry(self, task_name: str) -> bool:
+        """Check if there is a task in the metadata with the given name."""
+        return task_name in self.metadata
