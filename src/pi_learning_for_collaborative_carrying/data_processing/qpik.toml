@@ -55,7 +55,6 @@ frame_name = "r_upper_arm"
 kp_angular = 20.0
 node_number = 7
 weight = [1.0, 1.0, 1.0]
-#TODO from teleop xml file, currently not working well
 rotation_matrix = [1.0, 0.0, 0.0,
                    0.0, 0.0, 1.0,
                    0.0, -1.0, 0.0]
@@ -69,7 +68,6 @@ frame_name = "r_forearm"
 kp_angular = 20.0
 node_number = 8
 weight = [1.0, 1.0, 1.0]
-#TODO from teleop xml file, currently not working well
 rotation_matrix = [1.0, 0.0, 0.0,
                    0.0, 0.0, 1.0,
                    0.0, -1.0, 0.0]
@@ -83,7 +81,6 @@ frame_name = "l_upper_arm"
 kp_angular = 20.0
 node_number = 5
 weight = [1.0, 1.0, 1.0]
-#TODO from teleop xml file, currently not working well
 rotation_matrix = [1.0, 0.0, 0.0,
                    0.0, 0.0, -1.0,
                    0.0, 1.0, 0.0]
@@ -97,7 +94,6 @@ frame_name = "l_forearm"
 kp_angular = 20.0
 node_number = 4
 weight = [1.0, 1.0, 1.0]
-#TODO from teleop xml file, currently not working well
 rotation_matrix = [1.0, 0.0, 0.0,
                    0.0, 0.0, -1.0,
                    0.0, 1.0, 0.0]
@@ -124,13 +120,9 @@ frame_name = "r_lower_leg"
 kp_angular = 20.0
 node_number = 12
 weight = [1.0, 1.0, 1.0]
-# rotation_matrix = [1.0, 0.0, 0.0,
-#                    0.0, 0.0, 1.0,
-#                    0.0, -1.0, 0.0]
-#TODO calculated based on the above IMU_R_linkHuman, and the rotation from human to robot link orientation
 rotation_matrix = [1.0, 0.0, 0.0,
-                   0.0, 0.0, -1.0,
-                   0.0, 1.0, 0.0]
+                   0.0, 0.0, 1.0,
+                   0.0, -1.0, 0.0]
 
 [LEFT_UPPER_LEG_TASK]
 type = "SO3Task"
@@ -154,13 +146,9 @@ frame_name = "l_lower_leg"
 kp_angular = 20.0
 node_number = 10
 weight = [1.0, 1.0, 1.0]
-# rotation_matrix = [1.0, 0.0, 0.0,
-#                    0.0, 0.0, -1.0,
-#                    0.0, 1.0, 0.0]
-#TODO calculated based on the above IMU_R_linkHuman, and the rotation from human to robot link orientation
 rotation_matrix = [1.0, 0.0, 0.0,
-                   0.0, 0.0, 1.0,
-                   0.0, -1.0, 0.0]
+                   0.0, 0.0, -1.0,
+                   0.0, 1.0, 0.0]
 
 
 [RIGHT_FOOT_TASK]
@@ -172,9 +160,9 @@ target_frame_name = "r_sole"
 kp = 20.0
 node_number = 2
 weight = [1.0, 1.0]
-rotation_matrix = [0.0, 1.0, 0.0,
-                   -1.0, 0.0, 0.0,
-                   0.0, 0.0, 1.0]
+rotation_matrix = [1.0, 0.0, 0.0,
+                   0.0, 0.0, 1.0,
+                   0.0, -1.0, 0.0]
 
 [LEFT_FOOT_TASK]
 type = "GravityTask"
@@ -185,9 +173,9 @@ target_frame_name = "l_sole"
 kp = 20.0
 node_number = 1
 weight = [1.0, 1.0]
-rotation_matrix = [0.0, 1.0, 0.0,
-                   -1.0, 0.0, 0.0,
-                   0.0, 0.0, 1.0]
+rotation_matrix = [0.0, 0.0, -1.0,
+                   1.0, 0.0, 0.0,
+                   0.0, -1.0, 0.0]
 
 [RIGHT_TOE_TASK]
 type = "R3Task"
