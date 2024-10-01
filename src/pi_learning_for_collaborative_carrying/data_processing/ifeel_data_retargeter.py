@@ -396,14 +396,14 @@ class WBGR:
                                        base_quaternion=new_base_quaternion)
 
         # Get the height of the front foot frame off the ground
-        foot_height = utils.idyn_transform_to_np(self.kindyn.getWorldTransform("r_foot_front"))[2,3]
+        foot_height = utils.idyn_transform_to_np(self.kindyn.getWorldTransform("r_sole"))[2,3]
 
         # Calibrate the robot at the beginning, assuming data starts at T-pose
         # Calibrate the world yaw by computing the world to IMU world calibration matrices
         self.calibrate_world_yaw()
 
         # Calibration the nodes with respect to the world frame
-        self.calibrate_all_with_world(ref_frame="data_LeftFoot")
+        self.calibrate_all_with_world(ref_frame="l_sole")
 
         # Define the timestep size
         dt_planner = 0.01 #100 Hz

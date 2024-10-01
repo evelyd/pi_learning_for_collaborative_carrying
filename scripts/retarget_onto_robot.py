@@ -13,6 +13,7 @@ import idyntree.swig as idyn
 import bipedal_locomotion_framework.bindings as blf
 import jaxsim.api as js
 from scipy.spatial.transform import Rotation
+import resolve_robotics_uri_py
 
 # ==================
 # USER CONFIGURATION
@@ -48,7 +49,7 @@ plot_ik_solutions = args.plot_ik_solutions
 # ===============
 
 # Retrieve the robot urdf model
-urdf_path = pathlib.Path("../src/pi_learning_for_collaborative_carrying/model/ergoCubGazeboV1_xsens/ergoCubGazeboV1_xsens.urdf")
+urdf_path = str(resolve_robotics_uri_py.resolve_robotics_uri("package://ergoCub/robots/ergoCubSN001/model.urdf"))
 
 # Init jaxsim model for visualization and joint names/positions
 js_model = js.model.JaxSimModel.build_from_model_description(
