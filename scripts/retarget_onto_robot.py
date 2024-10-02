@@ -82,6 +82,25 @@ qp_ik_params.set_parameter_string(name="robot_velocity_variable_name", value="ro
 # Set the extra joint limit task parameters
 
 if "JOINT_LIMITS_TASK" in qp_ik_params.get_parameter_vector_string("tasks"):
+    # Get the specified joints
+    lim_joints = qp_ik_params.get_group("JOINT_LIMITS_TASK").get_parameter_vector_string("joints_list")
+
+    # Get joint limits from model urdf
+    lower = np.array([kindyn.model().getJoint(i).getMinPosLimit(i) for i in range(len(joint_names))])
+    upper = np.array([kindyn.model().getJoint(i).getMaxPosLimit(i) for i in range(len(joint_names))])
+
+    # Get the joint limits
+    upper_bounds = qp_ik_params.get_group("JOINT_LIMITS_TASK").get_parameter_vector_float("upper_bounds")
+    lower_bounds = qp_ik_params.get_group("JOINT_LIMITS_TASK").get_parameter_vector_float("lower_bounds")
+
+    # Update with the specified joints
+    for joint in lim_joints:
+        upper[joint_names.index(joint)] = upper_bounds[lim_joints.index(joint)]
+        lower[joint_names.index(joint)] = lower_bounds[lim_joints.index(joint)]
+
+    # Assign the vector values to the task
+    qp_ik_params.get_group("JOINT_LIMITS_TASK").set_parameter_vector_float(name="lower_limits", value=lower)
+    qp_ik_params.get_group("JOINT_LIMITS_TASK").set_parameter_vector_float(name="upper_limits", value=upper)
 
     # Get the model joint limits
     k_limits = qp_ik_params.get_group("JOINT_LIMITS_TASK").get_parameter_float("k_limits")
