@@ -160,9 +160,9 @@ target_frame_name = "r_sole"
 kp = 20.0
 node_number = 2
 weight = [1.0, 1.0]
-rotation_matrix = [1.0, 0.0, 0.0,
-                   0.0, 0.0, 1.0,
-                   0.0, -1.0, 0.0]
+rotation_matrix = [0.0, -1.0, 0.0,
+                   1.0, 0.0, 0.0,
+                   0.0, 0.0, 1.0]
 
 [LEFT_FOOT_TASK]
 type = "GravityTask"
@@ -173,9 +173,9 @@ target_frame_name = "l_sole"
 kp = 20.0
 node_number = 1
 weight = [1.0, 1.0]
-rotation_matrix = [0.0, 0.0, -1.0,
-                   1.0, 0.0, 0.0,
-                   0.0, -1.0, 0.0]
+rotation_matrix = [-1.0, 0.0, 0.0,
+                   0.0, -1.0, 0.0,
+                   0.0, 0.0, 1.0]
 
 [RIGHT_TOE_TASK]
 type = "R3Task"

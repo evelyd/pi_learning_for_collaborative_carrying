@@ -442,18 +442,19 @@ class WBGR:
 
                 # Compute the target link orientation in the world frame
                 # W_R_link = W_R_WIMU * WIMU_R_IMU * IMU_R_link
-                I_R_link = Rotation.from_matrix(self.calibration_matrices[group_name]) * Rotation.from_quat(utils.to_xyzw(I_quat_IMU)) * IMU_R_link
+                calib_matrix = Rotation.identity().as_matrix() if group_name not in self.calibration_matrices else self.calibration_matrices[group_name]
+                I_R_link = Rotation.from_matrix(calib_matrix) * Rotation.from_quat(utils.to_xyzw(I_quat_IMU)) * IMU_R_link
 
                 if task_type == 'SO3Task':
                     # Compute the angular velocities in the calibrated frame
                     I_omega_IMU = np.array(task['angular_velocities'][i])
-                    I_omega_link = Rotation.from_matrix(self.calibration_matrices[group_name]).as_matrix().dot(I_omega_IMU)
+                    I_omega_link = Rotation.from_matrix(calib_matrix).as_matrix().dot(I_omega_IMU)
 
                     assert self.ik_solver.get_task(group_name).set_set_point(
                     manif.SO3(quaternion=I_R_link.as_quat()),
                     manif.SO3Tangent(I_omega_link))
                 else: # for GravityTask
-                    target_gravity_direction = I_R_link.inv().as_matrix()[:,0]
+                    target_gravity_direction = I_R_link.inv().as_matrix()[:,2]
                     assert self.ik_solver.get_task(group_name).set_set_point(
                     target_gravity_direction)
 
