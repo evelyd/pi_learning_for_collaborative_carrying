@@ -10,6 +10,7 @@ import bipedal_locomotion_framework.bindings as blf
 import idyntree.swig as idyn
 from scipy.spatial.transform import Rotation
 import manifpy as manif
+import biomechanical_analysis_framework as baf
 
 import matplotlib as mpl
 mpl.rcParams['toolbar'] = 'None'
@@ -241,8 +242,6 @@ class IKTargets:
 class WBGR:
     """Class implementing the Whole-Body Geometric Retargeting (WBGR)."""
 
-    # ik_targets: IKTargets
-    ik_solver: blf.ik.QPInverseKinematics
     param_handler: blf.parameters_handler.IParametersHandler
     motiondata: motion_data.MotionData
     metadata: motion_data.MocapMetadata
@@ -252,11 +251,14 @@ class WBGR:
     calibration_matrices = {}
     IMU_link_rotations = {}
     initial_base_height: float
+    humanIK: baf.ik.HumanIK
+    node_struct: dict
 
     @staticmethod
     def build(motiondata: motion_data.MotionData,
               metadata: motion_data.MocapMetadata,
-              ik_solver: blf.ik.QPInverseKinematics,
+              humanIK: baf.ik.HumanIK,
+              node_struct: dict,
               param_handler: blf.parameters_handler.IParametersHandler,
               joint_names: List,
               kindyn: idyn.KinDynComputations,
@@ -268,106 +270,16 @@ class WBGR:
               initial_base_height: float = 0.0) -> "WBGR":
         """Build an instance of WBGR."""
 
-        # Instantiate IKTargets
-        # ik_targets = IKTargets.build(motiondata=motiondata, metadata=metadata)
-
         #TODO update this for using ifeel data
         # if mirroring:
         #     # Mirror the ik targets
         #     ik_targets.mirror_ik_targets()
 
-        #TODO no longer need horizontal feet or straight head with BAF strategy
-        # if horizontal_feet:
-        #     # Enforce feet parallel to the ground
-        #     ik_targets.enforce_horizontal_feet()
-
-        # if straight_head:
-        #     # Enforce straight head
-        #     ik_targets.enforce_straight_head()
-        # print("before wider legs")
         # if wider_legs:
             # Enforce wider legs
             # ik_targets.enforce_wider_legs()
-        # print("after wider legs")
 
-        return WBGR(#ik_targets=ik_targets,
-                    ik_solver=ik_solver, param_handler=param_handler, motiondata=motiondata, metadata=metadata, joint_names=joint_names, kindyn=kindyn, robot_to_target_base_quat=robot_to_target_base_quat, initial_base_height=initial_base_height)
-
-    def calibrate_world_yaw(self):
-        """Calibrate the world yaw by computing the world to IMU world calibration matrices."""
-
-        # Put arms in T pose
-        calib_joint_positions = np.array([0.]*len(self.joint_names))
-        calib_joint_positions[self.joint_names.index("l_shoulder_roll")] = np.pi/2
-        calib_joint_positions[self.joint_names.index("r_shoulder_roll")] = np.pi/2
-
-        # Set robot state with: joint pos, joint vel, base vel 0, base pose 0
-        utils.reset_robot_configuration(kindyn=self.kindyn, joint_positions=calib_joint_positions,
-                                       base_position=np.array([0., 0., self.initial_base_height]),
-                                       base_quaternion=np.array([0, 0, 0, 1]))
-
-        # Loop through orientation targets
-        for task in self.motiondata.SO3Tasks + self.motiondata.GravityTasks:
-
-            group_name = task['name']
-            frame_name = self.metadata.metadata[group_name]['frame']
-            orientations = task['orientations']
-            IMU_R_link = self.metadata.metadata[group_name]['IMU_R_link']
-
-            # Get world transform of the node and get the rotation from it
-            W_R_link = Rotation.from_matrix(utils.idyn_transform_to_np(self.kindyn.getWorldTransform(frame_name))[:3,:3])
-
-            # Get the ^I R_IMU rotation from the raw data
-            WIMU_R_IMU = Rotation.from_quat(utils.to_xyzw(np.array(orientations[0]))) #convert to rotation matrix
-
-            # Compute the calibration matrix for this link
-            W_R_WIMU = W_R_link * (WIMU_R_IMU * IMU_R_link).inv()
-
-            W_yaw_WIMU = W_R_WIMU.as_euler('xyz')[2]
-
-            W_R_yaw_WIMU = Rotation.from_euler('xyz', [0.0, 0.0, W_yaw_WIMU])
-
-            # Save the calibration matrix TODO cahnge back to just yaw
-            self.calibration_matrices[group_name] = W_R_WIMU.as_matrix()
-
-    def calibrate_all_with_world(self, ref_frame = ""):
-        """Compute the secondary calibration and the imu to link rotations."""
-
-        # Put arms in T pose
-        calib_joint_positions = np.array([0.]*len(self.joint_names))
-        calib_joint_positions[self.joint_names.index("l_shoulder_roll")] = np.pi/2
-        calib_joint_positions[self.joint_names.index("r_shoulder_roll")] = np.pi/2
-
-        # Set robot state with: joint pos, joint vel, base vel 0, base pose 0
-        utils.reset_robot_configuration(kindyn=self.kindyn, joint_positions=calib_joint_positions,
-                                       base_position=np.array(np.array([0., 0., self.initial_base_height])),
-                                       base_quaternion=np.array([0, 0, 0, 1]))
-
-        secondary_calib = Rotation.identity()
-
-        # If a reference frame is given, calibrate all nodes wrt that frame
-        if ref_frame != "":
-            secondary_calib = Rotation.from_matrix(utils.idyn_transform_to_np(self.kindyn.getWorldTransform(ref_frame))[:3,:3]).inv()
-
-        # Loop through orientation targets
-        for task in self.motiondata.SO3Tasks + self.motiondata.GravityTasks:
-            group_name = task['name']
-            frame_name = self.metadata.metadata[group_name]['frame']
-            orientations = task['orientations']
-            IMU_R_link = self.metadata.metadata[group_name]['IMU_R_link']
-
-            # Get the rotation from the IMU to the link frame
-            # IMU_R_link = (W_R_WIMU * WIMU_R_IMU)^{T} * W_R_link
-            W_R_WIMU = Rotation.from_matrix(self.calibration_matrices[group_name])
-            WIMU_R_IMU = Rotation.from_quat(utils.to_xyzw(np.array(orientations[0])))
-            W_R_link = Rotation.from_matrix(utils.idyn_transform_to_np(self.kindyn.getWorldTransform(frame_name))[:3,:3])
-            IMU_R_link = (W_R_WIMU * WIMU_R_IMU).inv() * W_R_link
-
-            # Update the IMU_R_link rotation for this link
-            self.IMU_link_rotations[group_name] = IMU_R_link.as_matrix()
-
-            # Update the calibration matrix for each link
-            self.calibration_matrices[group_name] = secondary_calib.as_matrix() * self.calibration_matrices[group_name]
+        return WBGR(param_handler=param_handler, motiondata=motiondata, metadata=metadata, joint_names=joint_names, kindyn=kindyn, robot_to_target_base_quat=robot_to_target_base_quat, initial_base_height=initial_base_height, humanIK=humanIK, node_struct=node_struct)
 
     def retarget(self, plot_ik_solutions: bool) -> (List, List):
         """Apply Whole-Body Geometric Retargeting (WBGR)."""
@@ -396,28 +308,21 @@ class WBGR:
                                        base_quaternion=new_base_quaternion)
 
         # Get the height of the front foot frame off the ground
-        foot_height = utils.idyn_transform_to_np(self.kindyn.getWorldTransform(self.metadata.metadata["RIGHT_TOE_TASK"]['frame']))[2,3]
+        foot_height = utils.idyn_transform_to_np(self.kindyn.getWorldTransform("r_foot_front"))[2,3]
 
-        # Calibrate the robot at the beginning, assuming data starts at T-pose
-        # Calibrate the world yaw by computing the world to IMU world calibration matrices
-        self.calibrate_world_yaw()
+        # ====================================================
+        # Calibrate using humanIK
+        # ====================================================
 
-        # Calibration the nodes with respect to the world frame
-        # self.calibrate_all_with_world(ref_frame="l_sole")
+        calib_joint_positions = np.array([0.]*len(self.joint_names))
+        calib_joint_positions[self.joint_names.index("l_shoulder_roll")] = np.pi/2
+        calib_joint_positions[self.joint_names.index("r_shoulder_roll")] = np.pi/2
 
-        # Define the timestep size
-        dt_planner = 0.01 #100 Hz
+        self.humanIK.calibrateWorldYaw(self.node_struct, calib_joint_positions)
+        self.humanIK.calibrateAllWithWorld(self.node_struct, calib_joint_positions, "l_sole")
 
         # Keep track of the frames jumped due to IK failure
         jumped_frames = 0
-
-        base_positions = []
-        base_quaternions = []
-        base_angles = []
-        joint_position_list = np.zeros(shape=(len(self.joint_names),len(self.motiondata.SampleDurations)))
-
-        # Initialize the simulator for integration
-        simulator = utils.Simulator(new_base_position, new_base_quaternion, new_joint_positions, dt_planner)
 
         for i in range(len(self.motiondata.SampleDurations)):
 
@@ -429,8 +334,6 @@ class WBGR:
             # UPDATE TARGETS
             # ==============
 
-            #TODO helper functions to update each type of task: orientation, gravity, joint lim, joint reg, and floor contact
-
             # Update orientation and gravity tasks
             for task in self.motiondata.SO3Tasks + self.motiondata.GravityTasks:
 
@@ -438,62 +341,35 @@ class WBGR:
                 group_name = task['name']
                 task_type = self.metadata.metadata[group_name]['type']
                 I_quat_IMU = np.array(task['orientations'][i])
-                IMU_R_link = self.metadata.metadata[group_name]['IMU_R_link']
+                node_number = self.metadata.metadata[group_name]['node_number']
 
-                # Compute the target link orientation in the world frame
-                # W_R_link = W_R_WIMU * WIMU_R_IMU * IMU_R_link
-                calib_matrix = Rotation.identity().as_matrix() if group_name not in self.calibration_matrices else self.calibration_matrices[group_name]
-                I_R_link = Rotation.from_matrix(calib_matrix) * Rotation.from_quat(utils.to_xyzw(I_quat_IMU)) * IMU_R_link
+                I_R_IMU_manif = manif.SO3(quaternion=utils.to_xyzw(I_quat_IMU))
 
                 if task_type == 'SO3Task':
-                    # Compute the angular velocities in the calibrated frame
+                    # Get the orientation data in manif SO3 format
+                    # Get the angular velocity data in manif SO3Tangent format
                     I_omega_IMU = np.array(task['angular_velocities'][i])
-                    I_omega_link = Rotation.from_matrix(calib_matrix).as_matrix().dot(I_omega_IMU)
+                    I_omega_IMU_manif = manif.SO3Tangent(I_omega_IMU)
 
-                    assert self.ik_solver.get_task(group_name).set_set_point(
-                    manif.SO3(quaternion=I_R_link.as_quat()),
-                    manif.SO3Tangent(I_omega_link))
+                    assert self.humanIK.updateOrientationTask(node_number, I_R_IMU_manif, I_omega_IMU_manif)
+
                 else: # for GravityTask
-                    target_gravity_direction = I_R_link.inv().as_matrix()[:,2]
-                    assert self.ik_solver.get_task(group_name).set_set_point(
-                    target_gravity_direction)
+                    assert self.humanIK.updateGravityTask(node_number, I_R_IMU_manif)
 
             # Update R3Tasks
             for task in self.motiondata.R3Tasks:
                 group_name = task['name']
-                task_type = self.metadata.metadata[group_name]['type']
-                frame_name = self.metadata.metadata[group_name]['frame']
-                threshold = self.metadata.metadata[group_name]['force_threshold']
-                weight = self.metadata.metadata[group_name]['weight']
                 force = task['forces'][i]
+                node_number = self.metadata.metadata[group_name]['node_number']
 
-                # Check if the vertical force indicates contact
-                if i > 0:
-                    previous_force = task['forces'][i-1]
-                else:
-                    previous_force = 0.0
-
-                # If the foot is in contact now but wasn't before, set the desired position to be the current ground position with z = 0
-                if force > threshold and previous_force <= threshold:
-                    self.ik_solver.set_task_weight(group_name, weight)
-                    I_H_frame = utils.idyn_transform_to_np(self.kindyn.getWorldTransform(frame_name))
-                    desired_position = np.array([I_H_frame[0,3], I_H_frame[1,3], foot_height])
-
-                # Else if the foot was in contact before but isn't now, set this task weight to 0 (i.e. turn it off)
-                elif force <= threshold and previous_force > threshold:
-                    self.ik_solver.set_task_weight(group_name, np.zeros(3))
-
-                # If the foot is in contact, update the desired position
-                assert self.ik_solver.get_task(group_name).set_set_point(desired_position)
+                assert self.humanIK.updateFloorContactTask(node_number, force, foot_height)
 
 
             # Update JointLimitsTask
-            if self.metadata.has_entry("JOINT_LIMITS_TASK"):
-                assert self.ik_solver.get_task("JOINT_LIMITS_TASK").update()
+            assert self.humanIK.updateJointConstraintsTask()
 
-            # Update JointTrackingTask
-            if self.metadata.has_entry("JOINT_REG_TASK"):
-                assert self.ik_solver.get_task("JOINT_REG_TASK").set_set_point(np.array([0.] * len(self.joint_names)))
+            # # Update JointTrackingTask
+            assert self.humanIK.updateJointRegularizationTask()
 
             # ========
             # SOLVE IK
@@ -501,7 +377,7 @@ class WBGR:
 
             try:
                 # Step the solver
-                self.ik_solver.advance()
+                self.humanIK.advance()
 
             except Exception as e:
                 # Skip this ik solution and keep track of how many skipped
@@ -510,22 +386,10 @@ class WBGR:
 
                 continue
 
-            # Get the inverse kinematics output
-            state = self.ik_solver.get_output()
-            if not self.ik_solver.is_output_valid():
-                print("Frame skipped due to invalid output")
-                jumped_frames += 1
-
-                continue
-            assert self.ik_solver.is_output_valid()
-
-            simulator.set_control_input(state.base_velocity.coeffs(), state.joint_velocity)
-            simulator.integrate()
-            new_base_position, new_base_quaternion, new_joint_positions = simulator.integrator.get_solution()
-            new_base_quaternion = utils.to_wxyz(new_base_quaternion.coeffs())
-
-            # Update robot state in kindyn
-            utils.reset_robot_configuration(self.kindyn, new_joint_positions, new_base_position, new_base_quaternion)
+            # Get the solution values from human IK
+            new_joint_positions = self.humanIK.getJointPositions()[1]
+            new_base_position = self.humanIK.getBasePosition()[1]
+            new_base_quaternion = utils.to_wxyz(Rotation.from_matrix((self.humanIK.getBaseOrientation()[1])).as_quat())
 
             # Update ik solution
             ik_solution = utils.IKSolution(base_position=new_base_position,
@@ -549,60 +413,6 @@ class WBGR:
 
             # Store the ik solutions
             ik_solutions.append(ik_solution)
-
-            # Store relevant values for plotting
-            joint_positions = ik_solution.joint_configuration
-            base_position = ik_solution.base_position
-            base_quaternion = ik_solution.base_quaternion
-
-            # target_base_positions.append(np.array(target_base_position))
-            # target_base_quaternions.append(np.array(target_base_quaternion))
-            base_positions.append(np.array(base_position))
-            base_quaternions.append(np.array(base_quaternion))
-            base_angles.append(Rotation.from_quat(np.array(utils.to_xyzw(base_quaternion))).as_euler('xyz'))
-            # target_base_angles.append(Rotation.from_quat(utils.to_xyzw(target_base_quaternion)).as_euler('xyz'))
-            joint_position_list[:,i] = joint_positions
-
-        if plot_ik_solutions:
-            # plt.figure(1)
-            # plt.plot(range(0,len(base_positions)), base_positions)
-            # plt.plot(range(0,len(base_positions)), target_base_positions)
-            # plt.title("Base positions")
-            # plt.legend(['x actual', 'y actual', 'z actual', 'x target', 'y target', 'z target'])
-            # plt.savefig('../datasets/plots/base_positions_qpik.png')
-
-            # plt.figure(2)
-            # plt.plot(range(0,len(base_positions)), base_quaternions)
-            # plt.plot(range(0,len(base_positions)), target_base_quaternions)
-            # plt.title("Base quats")
-            # plt.legend(['x actual', 'y actual', 'z actual', 'w actual', 'x target', 'y target', 'z target', 'w target'])
-            # plt.savefig('../datasets/plots/base_quaternions_qpik.png')
-
-            # plt.figure(3)
-            # # plt.plot(range(0,len(base_positions)), base_angles)
-            # plt.plot(range(0,len(base_positions)), target_base_angles)
-            # plt.title("Base angles")
-            # plt.legend(['x actual', 'y actual', 'z actual', 'x target', 'y target', 'z target'])
-            # plt.savefig('../datasets/plots/base_angles_qpik.png')
-
-            plotting_joints = ['l_hip_pitch', 'l_hip_roll', 'l_hip_yaw', 'l_knee', 'l_ankle_pitch', 'l_ankle_roll',  # left leg
-                        'r_hip_pitch', 'r_hip_roll', 'r_hip_yaw', 'r_knee', 'r_ankle_pitch', 'r_ankle_roll',  # right leg
-                        'torso_pitch', 'torso_roll', 'torso_yaw',  # torso
-                        'neck_pitch', 'neck_roll', 'neck_yaw', # neck
-                        'l_shoulder_pitch', 'l_shoulder_roll', 'l_shoulder_yaw', 'l_elbow', # left arm
-                        'r_shoulder_pitch', 'r_shoulder_roll', 'r_shoulder_yaw', 'r_elbow'] # right arm
-            num_colors = len(plotting_joints)
-            cm = plt.get_cmap('hsv')
-            fig = plt.figure(4)
-            ax = fig.add_subplot(111)
-            ax.set_prop_cycle(color=[cm(1.*i/num_colors) for i in range(num_colors)])
-            for i in range(num_colors-1):
-                ax.plot(joint_position_list[self.joint_names.index(plotting_joints[i]),:]) #joint_position_list[i,:])
-            plt.title("Controlled joint positions")
-            plt.legend(plotting_joints)
-            plt.savefig('../datasets/plots/joint_positions_qpik.png')
-
-            plt.show()
 
         return timestamps, ik_solutions
 
@@ -742,7 +552,6 @@ class KFWBGR(WBGR):
     @staticmethod
     def build(motiondata: motion_data.MotionData,
               metadata: motion_data.MocapMetadata,
-              ik_solver: blf.ik.QPInverseKinematics,
               joint_names: List,
               mirroring: bool = False,
               horizontal_feet: bool = False,
@@ -762,15 +571,6 @@ class KFWBGR(WBGR):
             # Mirror the ik targets
             ik_targets.mirror_ik_targets()
 
-        #TODO no longer need horizontal feet or straight head with BAF strategy
-        # if horizontal_feet:
-        #     # Enforce feet parallel to the ground
-        #     ik_targets.enforce_horizontal_feet()
-
-        # if straight_head:
-        #     # Enforce straight head
-        #     ik_targets.enforce_straight_head()
-
         if wider_legs:
             # Enforce wider legs
             ik_targets.enforce_wider_legs()
@@ -778,7 +578,8 @@ class KFWBGR(WBGR):
         kinematic_computations = KinematicComputations.build(
             kindyn=kindyn, local_foot_vertices_pos=local_foot_vertices_pos, feet_frames=feet_frames)
 
-        return KFWBGR(ik_targets=ik_targets, ik_solver=ik_solver, joint_names=joint_names,
+        return KFWBGR(ik_targets=ik_targets,
+                      joint_names=joint_names,
                       kindyn=kindyn, robot_to_target_base_quat=robot_to_target_base_quat, initial_base_height=initial_base_height, kinematic_computations=kinematic_computations)
 
     def KF_retarget(self, plot_ik_solutions: bool) -> (List, List):

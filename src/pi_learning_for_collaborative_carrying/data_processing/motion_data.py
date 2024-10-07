@@ -76,20 +76,12 @@ class MocapMetadata:
     def add_task(self,
                  task_name: str,
                  task_type: str,
-                 frame: str,
-                 node_number: int,
-                 IMU_R_link: Rotation,
-                 force_threshold: float,
-                 weight: List) -> None:
+                 node_number: int) -> None:
         """Describe the task."""
 
         self.metadata[task_name] = {
             'type': task_type,
-            'frame': frame,
-            'node_number': node_number,
-            'IMU_R_link': IMU_R_link,
-            'force_threshold': force_threshold,
-            'weight': weight
+            'node_number': node_number
         }
 
     def has_entry(self, task_name: str) -> bool:

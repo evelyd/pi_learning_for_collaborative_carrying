@@ -14,6 +14,9 @@ import bipedal_locomotion_framework.bindings as blf
 import jaxsim.api as js
 from scipy.spatial.transform import Rotation
 import resolve_robotics_uri_py
+import biomechanical_analysis_framework as baf
+import h5py
+import manifpy as manif
 
 # ==================
 # USER CONFIGURATION
@@ -76,65 +79,8 @@ qp_ik_params = blf.parameters_handler.TomlParametersHandler()
 toml = pathlib.Path("../src/pi_learning_for_collaborative_carrying/data_processing/qpik.toml").expanduser()
 assert toml.is_file()
 ok = qp_ik_params.set_from_file(str(toml))
-qp_ik_params.set_parameter_string(name="robot_velocity_variable_name", value="robotVelocity")
-
-# =========================================
-# Set the extra joint limit task parameters
-
-if "JOINT_LIMITS_TASK" in qp_ik_params.get_parameter_vector_string("tasks"):
-    # Get the specified joints
-    lim_joints = qp_ik_params.get_group("JOINT_LIMITS_TASK").get_parameter_vector_string("joints_list")
-
-    # Get joint limits from model urdf
-    lower = np.array([kindyn.model().getJoint(i).getMinPosLimit(i) for i in range(len(joint_names))])
-    upper = np.array([kindyn.model().getJoint(i).getMaxPosLimit(i) for i in range(len(joint_names))])
-
-    # Get the joint limits
-    upper_bounds = qp_ik_params.get_group("JOINT_LIMITS_TASK").get_parameter_vector_float("upper_bounds")
-    lower_bounds = qp_ik_params.get_group("JOINT_LIMITS_TASK").get_parameter_vector_float("lower_bounds")
-
-    # Update with the specified joints
-    for joint in lim_joints:
-        upper[joint_names.index(joint)] = upper_bounds[lim_joints.index(joint)]
-        lower[joint_names.index(joint)] = lower_bounds[lim_joints.index(joint)]
-
-    # Assign the vector values to the task
-    qp_ik_params.get_group("JOINT_LIMITS_TASK").set_parameter_vector_float(name="lower_limits", value=lower)
-    qp_ik_params.get_group("JOINT_LIMITS_TASK").set_parameter_vector_float(name="upper_limits", value=upper)
-
-    # Get the model joint limits
-    k_limits = qp_ik_params.get_group("JOINT_LIMITS_TASK").get_parameter_float("k_limits")
-    qp_ik_params.get_group("JOINT_LIMITS_TASK").set_parameter_vector_float(name="klim", value=np.array([k_limits] * len(joint_names)))
-
-# ==================================================
-# Set the extra joint regularization task parameters
-
-if "JOINT_REG_TASK" in qp_ik_params.get_parameter_vector_string("tasks"):
-
-    qp_ik_params.get_group("JOINT_REG_TASK").set_parameter_vector_float(name="kp", value=np.array([0.0] * len(joint_names)))
-    weight_float = qp_ik_params.get_group("JOINT_REG_TASK").get_parameter_float(name="weight")
-    qp_ik_params.get_group("JOINT_REG_TASK").set_parameter_vector_float(name="weight", value=np.array([weight_float] * len(joint_names)))
-
-# ==================================================
-# Set the extra joint velocity limit task parameters
-
-if "JOINT_VEL_LIMITS_TASK" in qp_ik_params.get_parameter_vector_string("tasks"):
-
-    upper_limit = qp_ik_params.get_group("JOINT_VEL_LIMITS_TASK").get_parameter_float("upper_limit")
-    lower_limit = qp_ik_params.get_group("JOINT_VEL_LIMITS_TASK").get_parameter_float("lower_limit")
-    upper_limits = np.array([upper_limit] * len(joint_names))
-    lower_limits = np.array([lower_limit] * len(joint_names))
-    qp_ik_params.get_group("JOINT_VEL_LIMITS_TASK").set_parameter_vector_float(name="upper_limits", value=upper_limits)
-    qp_ik_params.get_group("JOINT_VEL_LIMITS_TASK").set_parameter_vector_float(name="lower_limits", value=lower_limits)
 
 assert ok
-
-# Build the QPIK object
-(variables_handler, tasks, ik_solver) = blf.ik.QPInverseKinematics.build(
-    param_handler=qp_ik_params, kin_dyn=kindyn
-)
-
-ik_solver: blf.ik.QPInverseKinematics
 
 # =====================
 # IFEEL DATA CONVERSION
@@ -153,42 +99,57 @@ metadata.add_timestamp()
 
 # Add the tasks to which to assign the target orientation or force data
 for task_name in qp_ik_params.get_parameter_vector_string("tasks"):
-    # Get the values from the parameter handler
-    if "target_frame_name" in str(qp_ik_params.get_group(task_name)):
-        frame = qp_ik_params.get_group(task_name).get_parameter_string("target_frame_name")
-    elif "frame_name" in str(qp_ik_params.get_group(task_name)):
-        frame = qp_ik_params.get_group(task_name).get_parameter_string("frame_name")
-    else:
-        frame = ""
-
     task_type = qp_ik_params.get_group(task_name).get_parameter_string("type")
     # Check for node number, if there is none, use 0
     node_number = qp_ik_params.get_group(task_name).get_parameter_int("node_number") if ("node_number" in str(qp_ik_params.get_group(task_name))) else 0
-    # Check for a rotation matrix, if there is none, use identity
-    if "rotation_matrix" in str(qp_ik_params.get_group(task_name)):
-        rotation_matrix = qp_ik_params.get_group(task_name).get_parameter_vector_float("rotation_matrix")
-        IMU_R_link = Rotation.from_matrix(np.reshape(rotation_matrix, (3, 3)))
-    else:
-        IMU_R_link = Rotation.identity()
-
-    if "vertical_force_threshold" in str(qp_ik_params.get_group(task_name)):
-        force_threshold = qp_ik_params.get_group(task_name).get_parameter_float("vertical_force_threshold")
-    else:
-        force_threshold = 0.0
-
-    if "weight" in str(qp_ik_params.get_group(task_name)):
-        weight = qp_ik_params.get_group(task_name).get_parameter_vector_float("weight")
-    else:
-        weight = [0.0, 0.0, 0.0]
 
     # Add a new task to the metadata
-    metadata.add_task(task_name, task_type, frame, node_number, IMU_R_link, force_threshold, weight)
+    metadata.add_task(task_name, task_type, node_number)
 
 # Instantiate the data converter
 converter = data_converter.DataConverter.build(mocap_filename=mocap_filename,
                                                           mocap_metadata=metadata)
 # Convert the mocap data
 motiondata = converter.convert()
+
+# =======================
+# HUMAN IK INITIALIZATION
+# =======================
+
+humanIK = baf.ik.HumanIK()
+
+humanIK.initialize(qp_ik_params, kindyn)
+humanIK.setDt(0.01)
+
+mocap_data = h5py.File(mocap_filename, 'r')
+mocap_data_cleaned = mocap_data['robot_logger_device']
+
+# Cut the data at the start time
+# Get the index of the timestamp closest to the start time
+start_time = 12.59
+zeroed_timestamps = np.squeeze(mocap_data_cleaned['shoe1']['FT']['timestamps'][:] - mocap_data_cleaned['shoe1']['FT']['timestamps'][0])
+start_time_index = np.argmin(np.abs(zeroed_timestamps - start_time))
+
+# Assign the data for the SO3 and Gravity tasks into a struct
+# Create the list of nodes in order of the toml file
+orientation_nodes = [3, 6, 7, 8, 5, 4, 11, 12, 9, 10]
+floor_contact_nodes = [1, 2]
+
+def normalize_quat(quat):
+    norm = np.linalg.norm(quat)
+    return [quat[1] / norm, quat[2] / norm, quat[3] / norm, quat[0] / norm]
+
+node_struct = {}
+for node in orientation_nodes + floor_contact_nodes:
+    # Define time series of rotations for this node
+    I_R_IMU = [manif.SO3(quaternion=normalize_quat([quat[1], quat[2], quat[3], quat[0]])) for quat in np.squeeze(mocap_data_cleaned['node' + str(node)]['orientation']['data'][start_time_index:])]
+    # Define time series of angular velocities for this node
+    I_omega_IMU = [manif.SO3Tangent(omega) for omega in np.squeeze(mocap_data_cleaned['node' + str(node)]['angVel']['data'][start_time_index:])]
+    # Assign these values to the node struct
+    nodeData = baf.ik.nodeData()
+    nodeData.I_R_IMU = I_R_IMU[0]
+    nodeData.I_omega_IMU = I_omega_IMU[0]
+    node_struct[node] = nodeData
 
 # ===========
 # RETARGETING
@@ -209,7 +170,6 @@ initial_base_height = utils.define_initial_base_height(robot="ergoCubV1")
 if kinematically_feasible_base_retargeting:
     retargeter = ifeel_data_retargeter.KFWBGR.build(motiondata=motiondata,
                                                      metadata=metadata,
-                                                     ik_solver=ik_solver,
                                                      param_handler=qp_ik_params,
                                                      joint_names=joint_names,
                                                      mirroring=mirroring,
@@ -224,7 +184,8 @@ if kinematically_feasible_base_retargeting:
 else:
     retargeter = ifeel_data_retargeter.WBGR.build(motiondata=motiondata,
                                                    metadata=metadata,
-                                                   ik_solver=ik_solver,
+                                                   humanIK=humanIK,
+                                                   node_struct=node_struct,
                                                    param_handler=qp_ik_params,
                                                    joint_names=joint_names,
                                                    kindyn=kindyn,

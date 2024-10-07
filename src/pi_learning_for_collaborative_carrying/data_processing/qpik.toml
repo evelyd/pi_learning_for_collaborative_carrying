@@ -24,8 +24,9 @@ robot_velocity_variable_name = "robot_velocity"
 
 [PELVIS_TASK]
 type = "SO3Task"
+robot_velocity_variable_name = "robot_velocity"
 weight_provider_type = "ConstantWeightProvider"
-priority = 1 #remove later
+priority = 1
 frame_name = "root_link"
 kp_angular = 20.0
 node_number = 3
@@ -36,6 +37,7 @@ rotation_matrix = [0.0, 1.0, 0.0,
 
 [T8_TASK]
 type = "SO3Task"
+robot_velocity_variable_name = "robot_velocity"
 weight_provider_type = "ConstantWeightProvider"
 priority = 1
 frame_name = "chest"
@@ -164,6 +166,7 @@ rotation_matrix = [0.0, -1.0, 0.0,
                    1.0, 0.0, 0.0,
                    0.0, 0.0, 1.0]
 
+
 [LEFT_FOOT_TASK]
 type = "GravityTask"
 robot_velocity_variable_name = "robot_velocity"
@@ -178,7 +181,7 @@ rotation_matrix = [-1.0, 0.0, 0.0,
                    0.0, 0.0, 1.0]
 
 [RIGHT_TOE_TASK]
-type = "R3Task"
+type = "FloorContactTask"
 robot_velocity_variable_name = "robot_velocity"
 weight_provider_type = "ConstantWeightProvider"
 priority = 1
@@ -190,7 +193,7 @@ weight = [1.0, 1.0, 1.0]
 vertical_force_threshold = 60.0
 
 [LEFT_TOE_TASK]
-type = "R3Task"
+type = "FloorContactTask"
 robot_velocity_variable_name = "robot_velocity"
 weight_provider_type = "ConstantWeightProvider"
 priority = 1
@@ -202,7 +205,7 @@ weight = [1.0, 1.0, 1.0]
 vertical_force_threshold = 60.0
 
 [JOINT_LIMITS_TASK]
-type = "JointLimitsTask"
+type = "JointConstraintTask"
 robot_velocity_variable_name = "robot_velocity"
 priority = 0
 use_model_limits = false
@@ -213,7 +216,7 @@ upper_bounds = [1.9, 1.9, 0.75, 0.75]
 lower_bounds = [0.07, 0.07, -0.25, -0.25]
 
 [JOINT_REG_TASK]
-type = "JointTrackingTask"
+type = "JointRegularizationTask"
 weight_provider_type = "ConstantWeightProvider"
 priority = 1
 robot_velocity_variable_name = "robot_velocity"
