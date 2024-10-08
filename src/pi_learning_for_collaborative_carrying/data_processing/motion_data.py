@@ -28,7 +28,7 @@ class SO3Task:
     angular_velocities: List[float]
 
 @dataclass
-class R3Task:
+class FloorContactTask:
     """Class for storing a sequence of forces of a floor contact task."""
 
     name: str
@@ -41,7 +41,7 @@ class MotionData:
     """
 
     SO3Tasks: List[dict] = field(default_factory=list)
-    R3Tasks: List[dict] = field(default_factory=list)
+    FloorContactTasks: List[dict] = field(default_factory=list)
     GravityTasks: List[dict] = field(default_factory=list)
     SampleDurations: List[float] = field(default_factory=list)
 

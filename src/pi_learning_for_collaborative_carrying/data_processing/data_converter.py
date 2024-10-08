@@ -145,12 +145,12 @@ class DataConverter:
                 motiondata.GravityTasks.append(asdict(task))
 
             # Store position task data
-            elif item_type == "R3Task":
+            elif item_type == "FloorContactTask":
 
                 # Take the vertical force from the FT sensor
                 forces = np.squeeze(mocap_data_cleaned['shoe' + str(item['node_number'])]['FT']['data'][start_time_index:])[:,2]
 
-                task = motion_data.R3Task(name=key, forces=forces)
-                motiondata.R3Tasks.append(asdict(task))
+                task = motion_data.FloorContactTask(name=key, forces=forces)
+                motiondata.FloorContactTasks.append(asdict(task))
 
         return motiondata

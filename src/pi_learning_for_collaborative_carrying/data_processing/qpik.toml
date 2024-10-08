@@ -18,6 +18,13 @@ tasks = [
     "JOINT_VEL_LIMITS_TASK"
 ]
 
+calibration_joint_positions = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.5708, 0.0, 1.5708,
+                                0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
 [IK]
 verbosity = false
 robot_velocity_variable_name = "robot_velocity"
@@ -162,8 +169,8 @@ target_frame_name = "r_sole"
 kp = 20.0
 node_number = 2
 weight = [1.0, 1.0]
-rotation_matrix = [0.0, -1.0, 0.0,
-                   1.0, 0.0, 0.0,
+rotation_matrix = [0.0, 1.0, 0.0,
+                  -1.0, 0.0, 0.0,
                    0.0, 0.0, 1.0]
 
 
@@ -176,8 +183,8 @@ target_frame_name = "l_sole"
 kp = 20.0
 node_number = 1
 weight = [1.0, 1.0]
-rotation_matrix = [-1.0, 0.0, 0.0,
-                   0.0, -1.0, 0.0,
+rotation_matrix = [0.0, 1.0, 0.0,
+                   -1.0, 0.0, 0.0,
                    0.0, 0.0, 1.0]
 
 [RIGHT_TOE_TASK]
@@ -211,9 +218,9 @@ priority = 0
 use_model_limits = false
 sampling_time = 0.017
 k_limits = 1.0
-joints_list = ["l_hip_roll", "r_hip_roll", "l_hip_yaw", "r_hip_yaw"]
-upper_bounds = [1.9, 1.9, 0.75, 0.75]
-lower_bounds = [0.07, 0.07, -0.25, -0.25]
+joints_list = ["l_hip_roll", "r_hip_roll", "l_hip_yaw", "r_hip_yaw", "l_shoulder_roll", "r_shoulder_roll"]
+upper_bounds = [1.9024, 1.9024, 0.7, 0.7, 2.618, 2.618]
+lower_bounds = [0.05, 0.05, -0.25, -0.25, 0.05, 0.05]
 
 [JOINT_REG_TASK]
 type = "JointRegularizationTask"

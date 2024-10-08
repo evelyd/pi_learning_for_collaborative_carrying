@@ -93,8 +93,10 @@ script_directory = os.path.dirname(os.path.abspath(__file__))
 mocap_filename = os.path.join(script_directory, mocap_filename)
 
 # Define the relevant data for retargeting purposes
-# use time 17.19 for calibration with arms down, or 12.59 for calibration in t-pose
-metadata = motion_data.MocapMetadata.build(start_time=12.59)
+# for cheng 1 dataset: use time 17.19 for calibration with arms down, or 12.59 for calibration in t-pose
+# for cheng 2 dataset: use time  for calibration with arms down, or 25.74 for calibration in t-pose
+start_time = 12.59
+metadata = motion_data.MocapMetadata.build(start_time=start_time)
 metadata.add_timestamp()
 
 # Add the tasks to which to assign the target orientation or force data
@@ -118,6 +120,9 @@ motiondata = converter.convert()
 
 humanIK = baf.ik.HumanIK()
 
+# TODO here need to set T pose to kindyn
+kindyn.setJointPos(qp_ik_params.get_parameter_vector_float("calibration_joint_positions"))
+
 humanIK.initialize(qp_ik_params, kindyn)
 humanIK.setDt(0.01)
 
@@ -135,14 +140,10 @@ start_time_index = np.argmin(np.abs(zeroed_timestamps - start_time))
 orientation_nodes = [3, 6, 7, 8, 5, 4, 11, 12, 9, 10]
 floor_contact_nodes = [1, 2]
 
-def normalize_quat(quat):
-    norm = np.linalg.norm(quat)
-    return [quat[1] / norm, quat[2] / norm, quat[3] / norm, quat[0] / norm]
-
 node_struct = {}
 for node in orientation_nodes + floor_contact_nodes:
     # Define time series of rotations for this node
-    I_R_IMU = [manif.SO3(quaternion=normalize_quat([quat[1], quat[2], quat[3], quat[0]])) for quat in np.squeeze(mocap_data_cleaned['node' + str(node)]['orientation']['data'][start_time_index:])]
+    I_R_IMU = [manif.SO3(quaternion=utils.normalize_quaternion(utils.to_xyzw(quat))) for quat in np.squeeze(mocap_data_cleaned['node' + str(node)]['orientation']['data'][start_time_index:])]
     # Define time series of angular velocities for this node
     I_omega_IMU = [manif.SO3Tangent(omega) for omega in np.squeeze(mocap_data_cleaned['node' + str(node)]['angVel']['data'][start_time_index:])]
     # Assign these values to the node struct

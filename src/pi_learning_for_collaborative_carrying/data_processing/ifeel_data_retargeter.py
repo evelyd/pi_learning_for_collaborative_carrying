@@ -287,26 +287,6 @@ class WBGR:
         timestamps = []
         ik_solutions = []
 
-        # Initialize the cumulative base and joint values at the first target value
-        new_base_position = np.array([0., 0., self.initial_base_height])
-        new_base_quaternion = np.array([0,0,0,1]) #xyzw
-        new_joint_positions = np.array([0.]*len(self.joint_names))
-        new_joint_positions[self.joint_names.index("l_shoulder_roll")] = np.pi/2
-        new_joint_positions[self.joint_names.index("r_shoulder_roll")] = np.pi/2
-
-        # Initialize ik solution
-        ik_solution = utils.IKSolution(base_position=new_base_position,
-                                 base_quaternion=new_base_quaternion,
-                                 joint_configuration=new_joint_positions)
-
-        # Store the first ik solution
-        ik_solutions.append(ik_solution)
-
-        # Reset the idyn robot state
-        utils.reset_robot_configuration(kindyn=self.kindyn, joint_positions=new_joint_positions,
-                                       base_position=new_base_position,
-                                       base_quaternion=new_base_quaternion)
-
         # Get the height of the front foot frame off the ground
         foot_height = utils.idyn_transform_to_np(self.kindyn.getWorldTransform("r_foot_front"))[2,3]
 
@@ -314,12 +294,9 @@ class WBGR:
         # Calibrate using humanIK
         # ====================================================
 
-        calib_joint_positions = np.array([0.]*len(self.joint_names))
-        calib_joint_positions[self.joint_names.index("l_shoulder_roll")] = np.pi/2
-        calib_joint_positions[self.joint_names.index("r_shoulder_roll")] = np.pi/2
-
-        self.humanIK.calibrateWorldYaw(self.node_struct, calib_joint_positions)
-        self.humanIK.calibrateAllWithWorld(self.node_struct, calib_joint_positions, "l_sole")
+        self.humanIK.clearCalibrationMatrices()
+        self.humanIK.calibrateWorldYaw(self.node_struct)
+        self.humanIK.calibrateAllWithWorld(self.node_struct, "r_foot_front")
 
         # Keep track of the frames jumped due to IK failure
         jumped_frames = 0
@@ -343,10 +320,10 @@ class WBGR:
                 I_quat_IMU = np.array(task['orientations'][i])
                 node_number = self.metadata.metadata[group_name]['node_number']
 
+                # Get the orientation data in manif SO3 format
                 I_R_IMU_manif = manif.SO3(quaternion=utils.to_xyzw(I_quat_IMU))
 
                 if task_type == 'SO3Task':
-                    # Get the orientation data in manif SO3 format
                     # Get the angular velocity data in manif SO3Tangent format
                     I_omega_IMU = np.array(task['angular_velocities'][i])
                     I_omega_IMU_manif = manif.SO3Tangent(I_omega_IMU)
@@ -356,14 +333,14 @@ class WBGR:
                 else: # for GravityTask
                     assert self.humanIK.updateGravityTask(node_number, I_R_IMU_manif)
 
-            # Update R3Tasks
-            for task in self.motiondata.R3Tasks:
+            # Update FloorContactTasks
+            for task in self.motiondata.FloorContactTasks:
+                node_number = self.metadata.metadata[group_name]['node_number']
                 group_name = task['name']
                 force = task['forces'][i]
                 node_number = self.metadata.metadata[group_name]['node_number']
 
                 assert self.humanIK.updateFloorContactTask(node_number, force, foot_height)
-
 
             # Update JointLimitsTask
             assert self.humanIK.updateJointConstraintsTask()
@@ -387,29 +364,16 @@ class WBGR:
                 continue
 
             # Get the solution values from human IK
-            new_joint_positions = self.humanIK.getJointPositions()[1]
-            new_base_position = self.humanIK.getBasePosition()[1]
-            new_base_quaternion = utils.to_wxyz(Rotation.from_matrix((self.humanIK.getBaseOrientation()[1])).as_quat())
+            ok, new_joint_positions = self.humanIK.getJointPositions()
+            ok, new_joint_velocities = self.humanIK.getJointVelocities()
+            ok, new_base_position = self.humanIK.getBasePosition()
+            ok, new_base_rotation = self.humanIK.getBaseOrientation()
+            new_base_quaternion = utils.to_wxyz(Rotation.from_matrix(new_base_rotation).as_quat())
 
             # Update ik solution
-            ik_solution = utils.IKSolution(base_position=new_base_position,
-                                 base_quaternion=new_base_quaternion,
-                                 joint_configuration=new_joint_positions)
-
-            # ====================================
-            # IMPOSE LIMITS FOR THE SHOULDER ROLLS
-            # ====================================
-
-            # Define shoulder roll lower limit
-            shoulder_roll_lower_limit = 0.1
-
-            # Impose left shoulder roll lower limit
-            if ik_solution.joint_configuration[self.joint_names.index('l_shoulder_roll')] < shoulder_roll_lower_limit:
-                ik_solution.joint_configuration[self.joint_names.index('l_shoulder_roll')] = shoulder_roll_lower_limit
-
-            # Impose right shoulder roll lower limit
-            if ik_solution.joint_configuration[self.joint_names.index('r_shoulder_roll')] < shoulder_roll_lower_limit:
-                ik_solution.joint_configuration[self.joint_names.index('r_shoulder_roll')] = shoulder_roll_lower_limit
+            ik_solution = utils.IKSolution(base_position=[new_base_position[0], new_base_position[1], new_base_position[2] + self.initial_base_height],
+                                     base_quaternion=new_base_quaternion,
+                                     joint_configuration=new_joint_positions)
 
             # Store the ik solutions
             ik_solutions.append(ik_solution)
