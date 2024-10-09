@@ -3,7 +3,6 @@
 
 from typing import List, Dict
 from dataclasses import dataclass, field
-from scipy.spatial.transform import Rotation
 
 @dataclass
 class SampleDurations:
@@ -39,7 +38,7 @@ class MotionData:
     """Class for the intermediate format into which different kinds of MoCap data are converted
     before retargeting. The format includes task data associated with timestamps.
     """
-
+    CalibrationData: Dict = field(default_factory=dict)
     SO3Tasks: List[dict] = field(default_factory=list)
     FloorContactTasks: List[dict] = field(default_factory=list)
     GravityTasks: List[dict] = field(default_factory=list)
@@ -73,6 +72,11 @@ class MocapMetadata:
 
         self.metadata['timestamp'] = {'type': 'TimeStamp'}
 
+    def add_calibration(self) -> None:
+        """Indicate that the data samples are associated with calibration data."""
+
+        self.metadata['calibration'] = {'type': 'Calibration'}
+
     def add_task(self,
                  task_name: str,
                  task_type: str,
@@ -83,7 +87,3 @@ class MocapMetadata:
             'type': task_type,
             'node_number': node_number
         }
-
-    def has_entry(self, task_name: str) -> bool:
-        """Check if there is a task in the metadata with the given name."""
-        return task_name in self.metadata

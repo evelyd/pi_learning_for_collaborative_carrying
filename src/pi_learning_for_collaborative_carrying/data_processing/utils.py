@@ -19,10 +19,6 @@ import matplotlib as mpl
 mpl.rcParams['toolbar'] = 'None'
 import matplotlib.pyplot as plt
 
-import bipedal_locomotion_framework as blf
-import manifpy as manif
-import datetime
-
 # =================
 # RETARGETING UTILS
 # =================
@@ -34,43 +30,6 @@ class IKSolution:
     base_position: np.array = dataclasses.field(default_factory=lambda: np.array([0.0, 0.0, 0.0]))
     base_quaternion: np.array = dataclasses.field(default_factory=lambda: np.array([1.0, 0.0, 0.0, 0.0]))
 
-class Simulator:
-    def __init__(self, initial_base_position, initial_base_quaternion, initial_joint_positions, dt):
-        self.system = blf.continuous_dynamical_system.FloatingBaseSystemKinematics()
-        self.system.set_state((initial_base_position,  manif.SO3(to_xyzw(initial_base_quaternion)), initial_joint_positions))
-
-        self.integrator = blf.continuous_dynamical_system.FloatingBaseSystemKinematicsForwardEulerIntegrator()
-        self.integrator.set_dynamical_system(self.system)
-        assert self.integrator.set_integration_step(dt)
-        self.dt = dt
-        self.zero = datetime.timedelta(milliseconds=0)
-
-    def set_control_input(self, base_velocity, joint_velocity):
-        self.system.set_control_input((base_velocity, joint_velocity))
-
-    def integrate(self):
-        self.integrator.integrate(self.zero, self.dt)
-
-def define_robot_to_target_base_quat(robot: str) -> List:
-    """Define the robot-specific quaternions from the robot base frame to the target base frame."""
-
-    if robot == "iCubV2_5":
-        # For iCubV2_5, the robot base frame is rotated of -180 degs on z w.r.t. the target base frame
-        robot_to_target_base_quat = [0, 0, 0, -1.0]
-
-    elif robot == "iCubV3":
-        # For iCubV3, the robot base frame is the same as the target base frame
-        robot_to_target_base_quat = [0, 0, 0, 0.0]
-
-    elif robot == "ergoCubV1":
-        # For ergoCubV1, the robot base frame is the same as the target base frame
-        robot_to_target_base_quat = [0, 0, 0, 0.0]
-
-    else:
-        raise Exception("Quaternions from the robot to the target base frame only defined for iCubV2_5, iCubV3 and ergoCubV1.")
-
-    return robot_to_target_base_quat
-
 def define_initial_base_height(robot: str) -> List:
     """Define the robot-specific quaternions from the robot base frame to the target base frame."""
 
@@ -81,110 +40,6 @@ def define_initial_base_height(robot: str) -> List:
         raise Exception("Initial base height only defined for ergoCubV1.")
 
     return initial_base_height
-
-def define_feet_frames_and_links(robot: str) -> Dict:
-    """Define the robot-specific feet frames and links."""
-
-    if robot == "iCubV2_5":
-        right_foot_frame = "r_foot"
-        left_foot_frame = "l_foot"
-        right_foot_link = "r_ankle_2"
-        left_foot_link = "l_ankle_2"
-
-    elif robot == "iCubV3":
-        right_foot_frame = "r_sole"
-        left_foot_frame = "l_sole"
-        right_foot_link = "r_ankle_2"
-        left_foot_link = "l_ankle_2"
-
-    elif robot == "ergoCubV1":
-        right_foot_frame = "r_sole"
-        left_foot_frame = "l_sole"
-        right_foot_link = "r_ankle_2"
-        left_foot_link = "l_ankle_2"
-
-    else:
-        raise Exception("Feet frames and links only defined for iCubV2_5, iCubV3 and ergoCubV1.")
-
-    feet_frames = {"right_foot": right_foot_frame, "left_foot": left_foot_frame}
-    feet_links = {feet_frames["right_foot"]: right_foot_link, feet_frames["left_foot"]: left_foot_link}
-
-    return feet_frames, feet_links
-
-def define_foot_vertices(robot: str) -> List:
-    """Define the robot-specific positions of the feet vertices in the foot frame."""
-
-    if robot == "iCubV2_5":
-
-        # For iCubV2_5, the feet vertices are not symmetrically placed wrt the foot frame origin.
-        # The foot frame has z pointing down, x pointing forward and y pointing right.
-
-        # Origin of the box which represents the foot (in the foot frame)
-        box_origin = [0.03, 0.005, 0.014]
-
-        # Size of the box which represents the foot
-        box_size = [0.16, 0.072, 0.001]
-
-        # Define front-left (FL), front-right (FR), back-left (BL) and back-right (BR) vertices in the foot frame
-        FL_vertex_pos = [box_origin[0] + box_size[0]/2, box_origin[1] - box_size[1]/2, box_origin[2]]
-        FR_vertex_pos = [box_origin[0] + box_size[0]/2, box_origin[1] + box_size[1]/2, box_origin[2]]
-        BL_vertex_pos = [box_origin[0] - box_size[0]/2, box_origin[1] - box_size[1]/2, box_origin[2]]
-        BR_vertex_pos = [box_origin[0] - box_size[0]/2, box_origin[1] + box_size[1]/2, box_origin[2]]
-
-    elif robot == "iCubV3":
-
-        # For iCubV3, the feet vertices are symmetrically placed wrt the sole frame origin.
-        # The sole frame has z pointing up, x pointing forward and y pointing left.
-
-        # Size of the box which represents the foot rear
-        box_size = [0.117, 0.1, 0.006]
-
-        # Distance between the foot rear and the foot front boxes
-        boxes_distance = 0.00225
-
-        # Define front-left (FL), front-right (FR), back-left (BL) and back-right (BR) vertices in the foot frame
-        FL_vertex_pos = [box_size[0] + boxes_distance / 2, box_size[1] / 2, 0]
-        FR_vertex_pos = [box_size[0] + boxes_distance / 2, - box_size[1] / 2, 0]
-        BL_vertex_pos = [- box_size[0] - boxes_distance / 2, box_size[1] / 2, 0]
-        BR_vertex_pos = [- box_size[0] - boxes_distance / 2, - box_size[1] / 2, 0]
-
-    elif robot == "ergoCubV1":
-
-        # For ergoCubV1, the feet vertices are symmetrically placed wrt the sole frame origin.
-        # The sole frame has z pointing up, x pointing forward and y pointing left.
-
-        # Size of the box which represents the foot rear
-        box_size = [0.117, 0.1, 0.006]
-
-        # Distance between the foot rear and the foot front boxes # TODO: doublecheck
-        boxes_distance = 0.00225
-
-        # Define front-left (FL), front-right (FR), back-left (BL) and back-right (BR) vertices in the foot frame
-        FL_vertex_pos = [box_size[0] + boxes_distance / 2, box_size[1] / 2, 0]
-        FR_vertex_pos = [box_size[0] + boxes_distance / 2, - box_size[1] / 2, 0]
-        BL_vertex_pos = [- box_size[0] - boxes_distance / 2, box_size[1] / 2, 0]
-        BR_vertex_pos = [- box_size[0] - boxes_distance / 2, - box_size[1] / 2, 0]
-
-    else:
-        raise Exception("Feet vertices positions only defined for iCubV2_5, iCubV3 and ergoCubV1.")
-
-    # Vertices positions in the foot (F) frame
-    F_vertices_pos = [FL_vertex_pos, FR_vertex_pos, BL_vertex_pos, BR_vertex_pos]
-
-    return F_vertices_pos
-
-def quaternion_multiply(quat1: List, quat2: List) -> np.array:
-    """Auxiliary function for quaternion multiplication."""
-
-    w1, x1, y1, z1 = quat1
-    w2, x2, y2, z2 = quat2
-
-    res = np.array([-x1 * x2 - y1 * y2 - z1 * z2 + w1 * w2,
-                     x1 * w2 + y1 * z2 - z1 * y2 + w1 * x2,
-                     -x1 * z2 + y1 * w2 + z1 * x2 + w1 * y2,
-                     x1 * y2 - y1 * x2 + z1 * w2 + w1 * z2])
-
-    return res
 
 def to_xyzw(wxyz: List) -> List:
     """Auxiliary function to convert quaternions from wxyz to xyzw format."""
@@ -242,52 +97,6 @@ def load_retargeted_mocap_from_json(input_file_name: str, initial_frame: int = 0
 # =========================
 # FEATURES EXTRACTION UTILS
 # =========================
-
-def define_frontal_base_direction(robot: str) -> List:
-    """Define the robot-specific frontal base direction in the base frame."""
-
-    if robot == "iCubV2_5":
-        # For iCubV2_5, the reversed x axis of the base frame is pointing forward
-        frontal_base_direction = [-1, 0, 0]
-
-    elif robot == "iCubV3":
-        # For iCubV3, the x axis is pointing forward
-        frontal_base_direction = [1, 0, 0]
-
-    elif robot == "ergoCubV1":
-        # For ergoCubV1, the x axis is pointing forward
-        frontal_base_direction = [1, 0, 0]
-
-    else:
-        raise Exception("Frontal base direction only defined for iCubV2_5, iCubV3 and ergoCubV1.")
-
-    return frontal_base_direction
-
-def define_frontal_chest_direction(robot: str) -> List:
-    """Define the robot-specific frontal chest direction in the chest frame."""
-
-    if robot == "iCubV2_5":
-        # For iCubV2_5, the z axis of the chest frame is pointing forward
-        frontal_chest_direction = [0, 0, 1]
-
-    elif robot == "iCubV3":
-        # For iCubV3, the x axis of the chest frame is pointing forward
-        frontal_chest_direction = [1, 0, 0]
-
-    elif robot == "ergoCubV1":
-        # For ergoCubV1, the x axis of the chest frame is pointing forward
-        frontal_chest_direction = [1, 0, 0]
-
-    else:
-        raise Exception("Frontal chest direction only defined for iCubV2_5, iCubV3 and ergoCubV1.")
-
-    return frontal_chest_direction
-
-def rotation_2D(angle: float) -> np.array:
-    """Auxiliary function for a 2-dimensional rotation matrix."""
-
-    return np.array([[math.cos(angle), -math.sin(angle)],
-                     [math.sin(angle), math.cos(angle)]])
 
 def transform_from_pos_quat(position: List, quaternion: List) -> np.ndarray:
 

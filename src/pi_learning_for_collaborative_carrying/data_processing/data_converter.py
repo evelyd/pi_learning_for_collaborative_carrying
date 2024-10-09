@@ -1,15 +1,13 @@
 # SPDX-FileCopyrightText: Fondazione Istituto Italiano di Tecnologia
 # SPDX-License-Identifier: BSD-3-Clause
 
-from typing import List, Dict
 from dataclasses import dataclass, asdict
 from pi_learning_for_collaborative_carrying.data_processing import motion_data
 import h5py
 from pi_learning_for_collaborative_carrying.data_processing import utils
 import numpy as np
-
-import matplotlib.pyplot as plt
-from scipy.spatial.transform import Rotation
+import biomechanical_analysis_framework as baf
+import manifpy as manif
 
 @dataclass
 class DataConverter:
@@ -27,73 +25,6 @@ class DataConverter:
 
         return DataConverter(mocap_data=mocap_data, mocap_metadata=mocap_metadata)
 
-    @staticmethod
-    def extract_timestamp(mocap_frame: str) -> float:
-        """Extract the timestamp from the mocap data associated with a certain frame."""
-
-        # Split the XSens message to identify data related to the links
-        mocap_frame_as_list = mocap_frame.split("XsensSuit::vLink::")
-
-        timestamp = float(mocap_frame_as_list[0].split()[1])
-
-        return timestamp
-
-    def extract_links_data(self, mocap_frame: str) -> Dict:
-        """Extract links data from the mocap data associated with a certain frame."""
-
-        # Discard from the XSens message data not related to the links
-        mocap_frame_as_list = mocap_frame.split("XsensSuit::vLink::")[1:]
-        mocap_frame_as_list[-1] = mocap_frame_as_list[-1].split("XsensSuit::vSJoint::")[0]
-        mocap_frame_as_list = mocap_frame_as_list[1::2]
-
-        links_data = {}
-
-        for i in range(len(mocap_frame_as_list)):
-
-            # Further cleaning of the XSens message components
-            link_info = mocap_frame_as_list[i].strip('" ()').split()
-            link_info[0] = link_info[0].strip('"')
-            link_name = link_info[0]
-
-            # Skip irrelevant links
-            if link_name not in self.mocap_metadata.metadata.keys():
-                continue
-
-            if link_name == "Pelvis":
-                # Store position and orientation for the base (Pelvis)
-                links_data[link_name] = [float(n) for n in link_info[2:9]]
-            else:
-                # Store orientation only for the other links
-                links_data[link_name] = [float(n) for n in link_info[2:6]]
-
-        return links_data
-
-    def clean_mocap_data(self) -> List:
-        """Clean the mocap frames collected using XSens from irrelevant information."""
-
-        mocap_data_cleaned = []
-
-        for mocap_frame in self.mocap_data:
-
-            # Skip empty mocap frames that sometimes occur in the dataset
-            if len(mocap_frame) <= 1:
-                continue
-
-            # Extract timestamp and links data
-            timestamp = self.extract_timestamp(mocap_frame)
-            links_data = self.extract_links_data(mocap_frame)
-
-            # Store timestamp and links data
-            mocap_frame_cleaned = {"timestamp": timestamp}
-            for link_name in links_data.keys():
-                mocap_frame_cleaned[link_name] = links_data[link_name]
-
-            # Discard the mocap frames containing incomplete information that sometimes occur in the dataset
-            if len(mocap_frame_cleaned.keys()) == len(self.mocap_metadata.metadata.keys()):
-                mocap_data_cleaned.append(mocap_frame_cleaned)
-
-        return mocap_data_cleaned
-
     def convert(self) -> motion_data.MotionData:
         """Convert the collected mocap data from the original to the intermediate format."""
 
@@ -110,6 +41,23 @@ class DataConverter:
             zeroed_timestamps = np.squeeze(mocap_data_cleaned['shoe1']['FT']['timestamps'][:] - mocap_data_cleaned['shoe1']['FT']['timestamps'][0])
 
             start_time_index = np.argmin(np.abs(zeroed_timestamps - self.mocap_metadata.start_time))
+
+            if item_type == "Calibration":
+                # Create a node struct for calibration, using the measurements at calibration time
+                orientation_nodes = [3, 6, 7, 8, 5, 4, 11, 12, 9, 10]
+                floor_contact_nodes = [1, 2]
+                node_struct = {}
+                for node in orientation_nodes + floor_contact_nodes:
+                    # Define time series of rotations for this node
+                    I_R_IMU = [manif.SO3(quaternion=utils.normalize_quaternion(utils.to_xyzw(quat))) for quat in np.squeeze(mocap_data_cleaned['node' + str(node)]['orientation']['data'][start_time_index:])]
+                    # Define time series of angular velocities for this node
+                    I_omega_IMU = [manif.SO3Tangent(omega) for omega in np.squeeze(mocap_data_cleaned['node' + str(node)]['angVel']['data'][start_time_index:])]
+                    # Assign these values to the node struct
+                    nodeData = baf.ik.nodeData()
+                    nodeData.I_R_IMU = I_R_IMU[0]
+                    nodeData.I_omega_IMU = I_omega_IMU[0]
+                    node_struct[node] = nodeData
+                motiondata.CalibrationData = node_struct
 
             # Retrieve and store timestamps for the entire dataset
             if item_type == "TimeStamp":
