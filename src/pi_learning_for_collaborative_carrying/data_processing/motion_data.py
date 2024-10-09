@@ -72,11 +72,6 @@ class MocapMetadata:
 
         self.metadata['timestamp'] = {'type': 'TimeStamp'}
 
-    def add_calibration(self) -> None:
-        """Indicate that the data samples are associated with calibration data."""
-
-        self.metadata['calibration'] = {'type': 'Calibration'}
-
     def add_task(self,
                  task_name: str,
                  task_type: str,

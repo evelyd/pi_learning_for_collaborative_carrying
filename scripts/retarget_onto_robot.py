@@ -95,7 +95,6 @@ if file_key is None:
 start_time = start_time_dict[file_key]
 metadata = motion_data.MocapMetadata.build(start_time=start_time)
 metadata.add_timestamp()
-metadata.add_calibration()
 
 # Add the tasks to which to assign the target orientation or force data
 for task_name in qp_ik_params.get_parameter_vector_string("tasks"):

@@ -33,6 +33,8 @@ class DataConverter:
 
         motiondata = motion_data.MotionData.build()
 
+        node_struct = {}
+
         for key, item in self.mocap_metadata.metadata.items():
 
             item_type = item['type']
@@ -41,23 +43,6 @@ class DataConverter:
             zeroed_timestamps = np.squeeze(mocap_data_cleaned['shoe1']['FT']['timestamps'][:] - mocap_data_cleaned['shoe1']['FT']['timestamps'][0])
 
             start_time_index = np.argmin(np.abs(zeroed_timestamps - self.mocap_metadata.start_time))
-
-            if item_type == "Calibration":
-                # Create a node struct for calibration, using the measurements at calibration time
-                orientation_nodes = [3, 6, 7, 8, 5, 4, 11, 12, 9, 10]
-                floor_contact_nodes = [1, 2]
-                node_struct = {}
-                for node in orientation_nodes + floor_contact_nodes:
-                    # Define time series of rotations for this node
-                    I_R_IMU = [manif.SO3(quaternion=utils.normalize_quaternion(utils.to_xyzw(quat))) for quat in np.squeeze(mocap_data_cleaned['node' + str(node)]['orientation']['data'][start_time_index:])]
-                    # Define time series of angular velocities for this node
-                    I_omega_IMU = [manif.SO3Tangent(omega) for omega in np.squeeze(mocap_data_cleaned['node' + str(node)]['angVel']['data'][start_time_index:])]
-                    # Assign these values to the node struct
-                    nodeData = baf.ik.nodeData()
-                    nodeData.I_R_IMU = I_R_IMU[0]
-                    nodeData.I_omega_IMU = I_omega_IMU[0]
-                    node_struct[node] = nodeData
-                motiondata.CalibrationData = node_struct
 
             # Retrieve and store timestamps for the entire dataset
             if item_type == "TimeStamp":
@@ -68,29 +53,37 @@ class DataConverter:
             elif item_type == "SO3Task":
                 # Assumes wxyz format
                 quaternions = [utils.normalize_quaternion(quat) for quat in np.squeeze(mocap_data_cleaned['node' + str(item['node_number'])]['orientation']['data'][start_time_index:])]
-                norms = [np.linalg.norm(quat) for quat in quaternions]
                 angular_velocities = np.squeeze(mocap_data_cleaned['node' + str(item['node_number'])]['angVel']['data'][start_time_index:])
-
-                # Check if norms contain any zeros
-                if any(norm == 0 for norm in norms):
-                    raise ValueError("One or more quaternions have zero norm and cannot be normalized")
 
                 task = motion_data.SO3Task(name=key, orientations=quaternions, angular_velocities=angular_velocities)
                 motiondata.SO3Tasks.append(asdict(task))
+
+                # Update node struct for calibration
+                I_R_IMU_calib = manif.SO3(quaternion=utils.normalize_quaternion(utils.to_xyzw(np.array(quaternions[0]))))
+                I_omega_IMU_calib = manif.SO3Tangent(angular_velocities[0])
+
+                nodeData = baf.ik.nodeData()
+                nodeData.I_R_IMU = I_R_IMU_calib
+                nodeData.I_omega_IMU = I_omega_IMU_calib
+                node_struct[item['node_number']] = nodeData
 
             # Store gravity task data
             elif item_type == "GravityTask":
 
                 # Assumes wxyz format
                 quaternions = [utils.normalize_quaternion(quat) for quat in np.squeeze(mocap_data_cleaned['node' + str(item['node_number'])]['orientation']['data'][start_time_index:])]
-                norms = [np.linalg.norm(quat) for quat in quaternions]
-
-                # Check if norms contain any zeros
-                if any(norm == 0 for norm in norms):
-                    raise ValueError("One or more quaternions have zero norm and cannot be normalized")
 
                 task = motion_data.GravityTask(name=key, orientations=quaternions)
                 motiondata.GravityTasks.append(asdict(task))
+
+                # Update node struct for calibration
+                I_R_IMU_calib = manif.SO3(quaternion=utils.normalize_quaternion(utils.to_xyzw(np.array(quaternions[0]))))
+                I_omega_IMU_calib = manif.SO3Tangent(np.squeeze(mocap_data_cleaned['node' + str(item['node_number'])]['angVel']['data'][start_time_index]))
+
+                nodeData = baf.ik.nodeData()
+                nodeData.I_R_IMU = I_R_IMU_calib
+                nodeData.I_omega_IMU = I_omega_IMU_calib
+                node_struct[item['node_number']] = nodeData
 
             # Store position task data
             elif item_type == "FloorContactTask":
@@ -100,5 +93,8 @@ class DataConverter:
 
                 task = motion_data.FloorContactTask(name=key, forces=forces)
                 motiondata.FloorContactTasks.append(asdict(task))
+
+        # Update the calibration data once all tasks have been added
+        motiondata.CalibrationData = node_struct
 
         return motiondata
