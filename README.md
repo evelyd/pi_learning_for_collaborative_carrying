@@ -1,5 +1,28 @@
 # Physics-informed trajectory generator for collaborative payload carrying for humanoid robots
 
+## Usage
+
+### Install
+
+To run the code in this repo, you can clone the repo:
+```
+git clone https://github.com/evelyd/pi_learning_for_collaborative_carrying.git
+cd pi_learning_for_collaborative_carrying/
+```
+and create a conda environment to install the package:
+```
+conda env create -n pi_collab --file environment.yml
+conda activate pi_collab
+pip install .
+```
+
+### Run the code
+Then within the conda env you will be able to run the scripts in the `scripts` folder, e.g.
+```
+cd scripts/
+python retarget_onto_robot
+```
+
 ## Responsible:
 |     [Evelyn D'Elia](https://github.com/evelyd)    |
 |-------------------------------------------------------|
