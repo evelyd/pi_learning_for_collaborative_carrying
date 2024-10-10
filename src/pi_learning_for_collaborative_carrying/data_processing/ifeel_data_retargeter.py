@@ -249,12 +249,17 @@ class WBGR:
             ok, new_joint_velocities = self.humanIK.getJointVelocities()
             ok, new_base_position = self.humanIK.getBasePosition()
             ok, new_base_rotation = self.humanIK.getBaseOrientation()
+            ok, new_base_linear_velocity = self.humanIK.getBaseLinearVelocity()
+            ok, new_base_angular_velocity = self.humanIK.getBaseAngularVelocity()
             new_base_quaternion = utils.to_wxyz(Rotation.from_matrix(new_base_rotation).as_quat())
 
             # Update ik solution
             ik_solution = utils.IKSolution(base_position=[new_base_position[0], new_base_position[1], new_base_position[2] + self.initial_base_height],
                                      base_quaternion=new_base_quaternion,
-                                     joint_configuration=new_joint_positions)
+                                     joint_configuration=new_joint_positions,
+                                     joint_velocities=new_joint_velocities,
+                                     base_linear_velocity=new_base_linear_velocity,
+                                     base_angular_velocity=new_base_angular_velocity)
 
             # Store the ik solutions
             ik_solutions.append(ik_solution)

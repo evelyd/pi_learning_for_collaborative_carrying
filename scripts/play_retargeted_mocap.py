@@ -45,7 +45,7 @@ js_model = js.model.JaxSimModel.build_from_model_description(
 # Get the joint name list
 joint_names = [str(joint_name) for joint_name in js_model.joint_names()]
 
-# Define the joints of interest for the features computation and their associated indexes in the robot joints  list
+# Define the joints of interest for the feature computation and their associated indexes in the robot joints  list
 controlled_joints = ['l_hip_pitch', 'l_hip_roll', 'l_hip_yaw', 'l_knee', 'l_ankle_pitch', 'l_ankle_roll',  # left leg
                      'r_hip_pitch', 'r_hip_roll', 'r_hip_yaw', 'r_knee', 'r_ankle_pitch', 'r_ankle_roll',  # right leg
                      'torso_pitch', 'torso_roll', 'torso_yaw',  # torso

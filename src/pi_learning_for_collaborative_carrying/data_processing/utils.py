@@ -27,8 +27,11 @@ import matplotlib.pyplot as plt
 class IKSolution:
 
     joint_configuration: np.ndarray
+    joint_velocities: np.ndarray
     base_position: np.array = dataclasses.field(default_factory=lambda: np.array([0.0, 0.0, 0.0]))
     base_quaternion: np.array = dataclasses.field(default_factory=lambda: np.array([1.0, 0.0, 0.0, 0.0]))
+    base_linear_velocity: np.array = dataclasses.field(default_factory=lambda: np.array([0.0, 0.0, 0.0]))
+    base_angular_velocity: np.array = dataclasses.field(default_factory=lambda: np.array([0.0, 0.0, 0.0]))
 
 def define_initial_base_height(robot: str) -> List:
     """Define the robot-specific quaternions from the robot base frame to the target base frame."""
@@ -69,8 +72,11 @@ def store_retargeted_mocap_as_json(timestamps: List, ik_solutions: List, outfile
         ik_solution = ik_solutions[i]
 
         ik_solution_json = {"joint_positions": ik_solution.joint_configuration.tolist(),
+                            "joint_velocities": ik_solution.joint_velocities.tolist(),
                             "base_position": ik_solution.base_position,
                             "base_quaternion": ik_solution.base_quaternion.tolist(),
+                            "base_linear_velocity": ik_solution.base_linear_velocity.tolist(),
+                            "base_angular_velocity": ik_solution.base_angular_velocity.tolist(),
                             "timestamp": timestamps[i]}
 
         ik_solutions_json.append(ik_solution_json)
@@ -95,7 +101,7 @@ def load_retargeted_mocap_from_json(input_file_name: str, initial_frame: int = 0
     return timestamps, ik_solutions
 
 # =========================
-# FEATURES EXTRACTION UTILS
+# FEATURE EXTRACTION UTILS
 # =========================
 
 def transform_from_pos_quat(position: List, quaternion: List) -> np.ndarray:
