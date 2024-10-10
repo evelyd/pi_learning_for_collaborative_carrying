@@ -23,14 +23,12 @@ parser = argparse.ArgumentParser()
 
 parser.add_argument("--filename", help="Mocap file to be retargeted. Relative path from script folder.",
                     type=str, default="../datasets/collaborative_payload_carrying/leader_backward/cheng1.mat")
-parser.add_argument("--mirroring", help="Mirror the mocap data.", action="store_true")
 parser.add_argument("--save", help="Store the retargeted motion in json format.", action="store_true")
 parser.add_argument("--deactivate_visualization", help="Do not visualize the retargeted motion.", action="store_true")
 
 args = parser.parse_args()
 
 mocap_filename = args.filename
-mirroring = args.mirroring
 store_as_json = args.save
 visualize_retargeted_motion = not args.deactivate_visualization
 
@@ -136,7 +134,6 @@ retargeter = ifeel_data_retargeter.WBGR.build(motiondata=motiondata,
                                                 humanIK=humanIK,
                                                 joint_names=joint_names,
                                                 kindyn=kindyn,
-                                                mirroring=mirroring,
                                                 initial_base_height=initial_base_height)
 
 # Retrieve ik solutions

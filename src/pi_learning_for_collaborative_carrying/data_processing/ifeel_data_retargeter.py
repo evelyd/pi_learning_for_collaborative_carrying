@@ -160,11 +160,6 @@ class WBGR:
               initial_base_height: float = 0.0) -> "WBGR":
         """Build an instance of WBGR."""
 
-        #TODO update this for using ifeel data
-        # if mirroring:
-        #     # Mirror the ik targets
-        #     ik_targets.mirror_ik_targets()
-
         return WBGR(motiondata=motiondata, metadata=metadata, joint_names=joint_names, kindyn=kindyn, initial_base_height=initial_base_height, humanIK=humanIK)
 
     def retarget(self) -> (List, List):

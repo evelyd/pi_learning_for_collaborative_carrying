@@ -69,7 +69,7 @@ def store_retargeted_mocap_as_json(timestamps: List, ik_solutions: List, outfile
         ik_solution = ik_solutions[i]
 
         ik_solution_json = {"joint_positions": ik_solution.joint_configuration.tolist(),
-                            "base_position": ik_solution.base_position.tolist(),
+                            "base_position": ik_solution.base_position,
                             "base_quaternion": ik_solution.base_quaternion.tolist(),
                             "timestamp": timestamps[i]}
 
