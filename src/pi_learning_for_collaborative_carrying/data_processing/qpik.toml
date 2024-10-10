@@ -183,7 +183,7 @@ frame_name = "r_foot_front"
 kp_linear = 60.0
 node_number = 2
 mask = [true, true, true]
-weight = [1.0, 1.0, 1.0]
+weight = [15.0, 15.0, 15.0]
 vertical_force_threshold = 60.0
 
 [LEFT_TOE_TASK]
@@ -194,7 +194,7 @@ frame_name = "l_foot_front"
 kp_linear = 60.0
 node_number = 1
 mask = [true, true, true]
-weight = [1.0, 1.0, 1.0]
+weight = [15.0, 15.0, 15.0]
 vertical_force_threshold = 60.0
 
 [JOINT_LIMITS_TASK]
