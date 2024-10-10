@@ -146,15 +146,7 @@ def visualize_retargeted_motion(timestamps: List,
 
     timestamp_prev = -1
 
-    # Define the vantage point and convert the env to a mujoco string
-    camera = {
-     "name":"ergocub_camera",
-     "mode":"fixed",
-     "pos":"20 20 4",
-     "xyaxes":"0 0 4 0 1 0",
-     "fovy":"60",
-    }
-    mjcf_string, assets = UrdfToMjcf.convert(urdf=js_model.built_from, cameras=camera)
+    mjcf_string, assets = UrdfToMjcf.convert(urdf=js_model.built_from)
 
     # Create the mujoco objects
     env = mujoco.MjModel.from_xml_string(mjcf_string, assets)
@@ -164,6 +156,20 @@ def visualize_retargeted_motion(timestamps: List,
     handle = mujoco.viewer.launch_passive(
             env, data, show_left_ui=False, show_right_ui=False
         )
+
+    # Define the vantage point and convert the env to a mujoco string
+    camera = {
+    "trackbodyid": mujoco.mj_name2id(env, mujoco.mjtObj.mjOBJ_BODY, 'root_link'),
+    "distance": 3.0,
+    "lookat": np.array((0.0, 0.0, 1.0)),
+    "elevation": -20.0,
+    }
+
+    for key, value in camera.items():
+            if isinstance(value, np.ndarray):
+                getattr(handle.cam, key)[:] = value
+            else:
+                setattr(handle.cam, key, value)
 
     with handle as viewer:
         for i in range(0, len(ik_solutions)-1):
@@ -202,7 +208,11 @@ def visualize_retargeted_motion(timestamps: List,
                 dt = timestamp - timestamp_prev
             timestamp_prev = timestamp
 
-            mujoco.mj_forward(env, data)
+            # Update the camera to follow the link
+            with viewer.lock():
+                viewer.cam.lookat[:] = data.qpos[:3]
+
+            mujoco.mj_step(env, data)
             viewer.sync()
             time.sleep(dt)
 
@@ -231,12 +241,18 @@ def visualize_global_features(global_window_features,
 
     # Define the vantage point and convert the env to a mujoco string
     camera = {
-     "name":"ergocub_camera",
-     "mode":"fixed",
-     "pos":"20 20 4",
-     "xyaxes":"0 0 4 0 1 0",
-     "fovy":"60",
+    "trackbodyid": mujoco.mj_name2id(env, mujoco.mjtObj.mjOBJ_BODY, 'root_link'),
+    "distance": 3.0,
+    "lookat": np.array((0.0, 0.0, 1.0)),
+    "elevation": -20.0,
     }
+
+    for key, value in camera.items():
+            if isinstance(value, np.ndarray):
+                getattr(handle.cam, key)[:] = value
+            else:
+                setattr(handle.cam, key, value)
+
     mjcf_string, assets = UrdfToMjcf.convert(urdf=js_model.built_from, cameras=camera)
 
     # Create the mujoco objects
@@ -276,7 +292,11 @@ def visualize_global_features(global_window_features,
             base_velocities = global_window_features.base_velocities[i - window_length_frames]
             base_quaternions = global_window_features.base_quaternions[i - window_length_frames]
 
-            mujoco.mj_forward(env, data)
+            # Update the camera to follow the link
+            with viewer.lock():
+                viewer.cam.lookat[:] = data.qpos[:3]
+
+            mujoco.mj_step(env, data)
             viewer.sync()
             time.sleep(1/50)
 
@@ -392,12 +412,18 @@ def visualize_local_features(local_window_features,
 
     # Define the vantage point and convert the env to a mujoco string
     camera = {
-     "name":"ergocub_camera",
-     "mode":"fixed",
-     "pos":"20 20 4",
-     "xyaxes":"0 0 4 0 1 0",
-     "fovy":"60",
+    "trackbodyid": mujoco.mj_name2id(env, mujoco.mjtObj.mjOBJ_BODY, 'root_link'),
+    "distance": 3.0,
+    "lookat": np.array((0.0, 0.0, 1.0)),
+    "elevation": -20.0,
     }
+
+    for key, value in camera.items():
+            if isinstance(value, np.ndarray):
+                getattr(handle.cam, key)[:] = value
+            else:
+                setattr(handle.cam, key, value)
+
     mjcf_string, assets = UrdfToMjcf.convert(urdf=js_model.built_from, cameras=camera)
 
     # Create the mujoco objects
@@ -437,7 +463,11 @@ def visualize_local_features(local_window_features,
             base_velocities = local_window_features.base_velocities[i - window_length_frames]
             base_quaternions = local_window_features.base_quaternions[i - window_length_frames]
 
-            mujoco.mj_forward(env, data)
+            # Update the camera to follow the link
+            with viewer.lock():
+                viewer.cam.lookat[:] = data.qpos[:3]
+
+            mujoco.mj_step(env, data)
             viewer.sync()
             time.sleep(1/50)
 
