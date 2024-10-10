@@ -78,7 +78,7 @@ script_directory = os.path.dirname(os.path.abspath(__file__))
 mocap_filename = os.path.join(script_directory, mocap_filename)
 
 # Define the relevant data for retargeting purposes
-start_time_dict = {"cheng1": 12.59, "cheng2": 25.44, "evelyn1": 11.73, "evelyn2": 25.79}
+start_time_dict = {"cheng1": 12.46, "cheng2": 25.34, "evelyn1": 11.61, "evelyn2": 25.00}
 
 # Extract the relevant part of the file name to determine the start time
 file_key = None
