@@ -21,14 +21,14 @@ import biomechanical_analysis_framework as baf
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument("--filename", help="Mocap file to be retargeted. Relative path from script folder.",
-                    type=str, default="../datasets/collaborative_payload_carrying/leader_backward/cheng1.mat")
+parser.add_argument("--data_location", help="Mocap file to be retargeted. Relative path from script folder.",
+                    type=str, default="../datasets/collaborative_payload_carrying/leader_backward/")
 parser.add_argument("--save", help="Store the retargeted motion in json format.", action="store_true")
 parser.add_argument("--deactivate_visualization", help="Do not visualize the retargeted motion.", action="store_true")
 
 args = parser.parse_args()
 
-mocap_filename = args.filename
+data_location = args.data_location
 store_as_json = args.save
 visualize_retargeted_motion = not args.deactivate_visualization
 
@@ -75,10 +75,10 @@ assert ok
 
 # Original mocap data
 script_directory = os.path.dirname(os.path.abspath(__file__))
-mocap_filename = os.path.join(script_directory, mocap_filename)
+mocap_filename = os.path.join(script_directory, data_location + "follower.mat")
 
 # Define the relevant data for retargeting purposes
-start_time_dict = {"cheng1": 12.46, "cheng2": 25.34, "evelyn1": 11.61, "evelyn2": 25.00}
+start_time_dict = {"leader_backward/follower": 12.4262, "leader_forward/follower": 25.34, "leader_backward/leader": 11.6305, "leader_forward/leader": 25.0275}
 
 # Extract the relevant part of the file name to determine the start time
 file_key = None
@@ -145,7 +145,7 @@ timestamps, ik_solutions = retargeter.retarget()
 
 if store_as_json:
 
-    outfile_name = os.path.join(script_directory, "retargeted_motion.txt")
+    outfile_name = os.path.join(script_directory, data_location + "retargeted_motion_" + os.path.splitext(os.path.basename(mocap_filename))[0] + ".txt")
 
     input("Press Enter to store the retargeted mocap into a json file")
     utils.store_retargeted_mocap_as_json(timestamps=timestamps, ik_solutions=ik_solutions, outfile_name=outfile_name)
