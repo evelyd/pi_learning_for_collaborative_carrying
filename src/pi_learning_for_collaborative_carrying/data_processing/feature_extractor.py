@@ -7,12 +7,15 @@ from dataclasses import dataclass, field
 from pi_learning_for_collaborative_carrying.data_processing import utils
 from scipy.spatial.transform import Rotation
 
+import matplotlib.pyplot as plt
+
 @dataclass
 class GlobalFrameFeatures:
     """Class for the global features associated to each retargeted frame."""
 
     # Feature computation
     ik_solutions: List
+    human_ik_solutions: List
     controlled_joints_indexes: List
     dt_mean: float
 
@@ -28,17 +31,111 @@ class GlobalFrameFeatures:
     base_linear_velocities_raw: List = field(default_factory=list)
     base_angular_velocities_raw: List = field(default_factory=list)
 
+    # Human feature storage
+    human_base_positions: List = field(default_factory=list)
+    human_base_orientations: List = field(default_factory=list)
+    human_base_linear_velocities_raw: List = field(default_factory=list)
+    human_base_angular_velocities_raw: List = field(default_factory=list)
+    human_base_linear_velocities: List = field(default_factory=list)
+    human_base_angular_velocities: List = field(default_factory=list)
+
+    plot_global_vels: bool = False
+    plot_human_features: bool = False
+    plot_robot_v_human: bool = False
+
     @staticmethod
     def build(ik_solutions: List,
+              human_data: dict,
               controlled_joints_indexes: List,
-              dt_mean: float
+              dt_mean: float,
+              plot_global_vels: bool = False,
+              plot_human_features: bool = False,
+              plot_robot_v_human: bool = False
               ) -> "GlobalFrameFeatures":
         """Build an empty GlobalFrameFeatures."""
 
         return GlobalFrameFeatures(ik_solutions=ik_solutions,
+                                   human_ik_solutions=human_data,
                                    controlled_joints_indexes=controlled_joints_indexes,
-                                   dt_mean=dt_mean
+                                   dt_mean=dt_mean, plot_global_vels=plot_global_vels,
+                                   plot_human_features=plot_human_features,
+                                   plot_robot_v_human=plot_robot_v_human
                                    )
+
+    def plot_raw_and_smoothed_vels(self) -> None:
+
+        fig, axs = plt.subplots(2, 1, figsize=(10, 10))
+
+        axs[0].plot([np.linalg.norm(vel) for vel in self.base_linear_velocities_raw], label='Raw linear velocity')
+        axs[0].plot([np.linalg.norm(vel) for vel in self.base_linear_velocities], label='Smoothed linear velocity')
+        axs[0].set_title('Base linear velocity')
+        axs[0].set_xlabel('Frame index')
+        axs[0].set_ylabel('Norm of the velocity (m/s)')
+        axs[0].legend()
+
+        axs[1].plot([np.linalg.norm(vel) for vel in self.base_angular_velocities_raw], label='Raw angular velocity')
+        axs[1].plot([np.linalg.norm(vel) for vel in self.base_angular_velocities], label='Smoothed angular velocity')
+        axs[1].set_title('Base angular velocity')
+        axs[1].set_xlabel('Frame index')
+        axs[1].set_ylabel('Norm of the velocity (rad/s)')
+        axs[1].legend()
+
+        plt.show()
+
+    def plot_human_data(self) -> None:
+
+        fig, axs = plt.subplots(2, 2, figsize=(16, 10))
+
+        axs[0,0].plot(self.human_base_positions)
+        axs[0,0].set_title('Human base position')
+        axs[0,0].set_xlabel('Frame index')
+        axs[0,0].set_ylabel('Position displacement (m)')
+        axs[0,0].legend(['x','y','z'])
+
+        axs[0,1].plot(self.human_base_orientations)
+        axs[0,1].set_title('Human base orientation')
+        axs[0,1].set_xlabel('Frame index')
+        axs[0,1].set_ylabel('Orientation displacement (rad)')
+        axs[0,1].legend(['roll', 'pitch', 'yaw'])
+
+        axs[1,0].plot(self.human_base_linear_velocities)
+        axs[1,0].set_title('Human base linear velocity')
+        axs[1,0].set_xlabel('Frame index')
+        axs[1,0].set_ylabel('Velocity (m/s)')
+        axs[1,0].legend(['x','y','z'])
+
+        axs[1,1].plot(self.human_base_angular_velocities)
+        axs[1,1].set_title('Human base angular velocity')
+        axs[1,1].set_xlabel('Frame index')
+        axs[1,1].set_ylabel('Angular velocity (rad/s)')
+        axs[1,1].legend(['roll', 'pitch', 'yaw'])
+
+        plt.show()
+
+    def plot_robot_and_human_positions(self) -> None:
+
+        fig = plt.figure(figsize=(10, 6))
+
+        plt.plot(np.arange(0, len(self.base_positions) * self.dt_mean, self.dt_mean), self.base_positions)
+        plt.plot(np.arange(0, len(self.human_base_positions) * self.dt_mean, self.dt_mean), self.human_base_positions)
+        plt.title('Base positions')
+        plt.xlabel('Time (s)')
+        plt.ylabel('Position displacement (m)')
+        plt.legend(['robot x','robot y','robot z', 'human x', 'human y', 'human z'])
+
+        plt.show()
+
+    def moving_average(self, vect, n) -> List:
+        moving_averaged_vect = []
+        for idx in range(0, len(vect)):
+            if idx < n//2: # When there are less than N/2 frames before the current frame, average over the available frames
+                moving_averaged_vect.append(np.mean(vect[:idx + n//2], axis=0))
+            elif idx >= len(vect) - n//2: # When there are less than N/2 frames after the current frame, average over the available frames
+                moving_averaged_vect.append(np.mean(vect[idx - n//2:], axis=0))
+            else: # Average over N frames
+                moving_averaged_vect.append(np.mean(vect[idx - n//2:idx + n//2], axis=0))
+
+        return moving_averaged_vect
 
     def compute_global_frame_features(self) -> None:
         """Extract global features associated to each retargeted frame"""
@@ -79,16 +176,42 @@ class GlobalFrameFeatures:
 
         # Smooth out the base velocities
         N = 9 # Filter window size, centered around current frame
-        for idx in range(0, len(self.base_linear_velocities_raw)):
-            if idx < N//2: # When there are less than N/2 frames before the current frame, average over the available frames
-                self.base_linear_velocities.append(np.mean(self.base_linear_velocities_raw[:idx + N//2], axis=0))
-                self.base_angular_velocities.append(np.mean(self.base_angular_velocities_raw[:idx + N//2], axis=0))
-            elif idx >= len(self.base_linear_velocities_raw) - N//2: # When there are less than N/2 frames after the current frame, average over the available frames
-                self.base_linear_velocities.append(np.mean(self.base_linear_velocities_raw[idx - N//2:], axis=0))
-                self.base_angular_velocities.append(np.mean(self.base_angular_velocities_raw[idx - N//2:], axis=0))
-            else: # Average over N frames
-                self.base_linear_velocities.append(np.mean(self.base_linear_velocities_raw[idx - N//2:idx + N//2], axis=0))
-                self.base_angular_velocities.append(np.mean(self.base_angular_velocities_raw[idx - N//2:idx + N//2], axis=0))
+        self.base_linear_velocities = self.moving_average(self.base_linear_velocities_raw, N)
+        self.base_angular_velocities = self.moving_average(self.base_angular_velocities_raw, N)
+
+        if self.plot_global_vels:
+            self.plot_raw_and_smoothed_vels()
+
+        # Rotate 180 degrees and then translate in positive x direction
+        new_R_current = Rotation.from_euler('z', 180, degrees=True).as_matrix().T
+        human_to_robot_distance = 1.0
+
+        for idx in range(0, len(self.human_ik_solutions["base_positions"])):
+
+            # Get the data
+            human_base_position_raw = self.human_ik_solutions["base_positions"][idx]
+            human_base_orientation_raw = self.human_ik_solutions["base_orientations"][idx]
+            human_base_linear_velocity_raw = self.human_ik_solutions["base_linear_velocities"][idx]
+            human_base_angular_velocity_raw = self.human_ik_solutions["base_angular_velocities"][idx]
+
+            # Rotate and translate all the data
+            human_base_position = new_R_current.dot(human_base_position_raw) + np.array([human_to_robot_distance, 0.0, 0.0])
+            human_base_orientation =  Rotation.from_matrix(new_R_current.dot(Rotation.from_euler('xyz', human_base_orientation_raw).as_matrix())).as_euler('xyz')
+            human_base_linear_velocity = new_R_current.dot(human_base_linear_velocity_raw)
+            human_base_angular_velocity = new_R_current.dot(human_base_angular_velocity_raw)
+
+            self.human_base_positions.append(human_base_position)
+            self.human_base_orientations.append(human_base_orientation)
+            self.human_base_linear_velocities_raw.append(human_base_linear_velocity)
+            self.human_base_angular_velocities_raw.append(human_base_angular_velocity)
+
+        self.human_base_linear_velocities = self.moving_average(self.human_base_linear_velocities_raw, N)
+        self.human_base_angular_velocities = self.moving_average(self.human_base_angular_velocities_raw, N)
+
+        if self.plot_human_features:
+            self.plot_human_data()
+        if self.plot_robot_v_human:
+            self.plot_robot_and_human_positions()
 
 
 
@@ -245,13 +368,20 @@ class FeatureExtractor:
     global_window_features: GlobalWindowFeatures
     local_window_features: LocalWindowFeatures
 
+    plot_global_vels: bool = False
+    plot_human_features: bool = False
+    plot_robot_v_human: bool = False
+
     @staticmethod
     def build(ik_solutions: List,
-            #   kindyn: kindyncomputations.KinDynComputations,
+              human_data: dict,
               controlled_joints_indexes: List,
-              dt_mean: float = 1/50,
+              dt_mean: float = 1/100,
               window_length_s: float = 1,
-              window_granularity_s: float = 0.2) -> "FeatureExtractor":
+              window_granularity_s: float = 0.2,
+              plot_global_vels: bool = False,
+              plot_human_features:bool = False,
+              plot_robot_v_human:bool = False) -> "FeatureExtractor":
         """Build a FeatureExtractor."""
 
         # Define the lenght, expressed in frames, of the window of interest (default=50)
@@ -265,9 +395,11 @@ class FeatureExtractor:
 
         # Instantiate all the features
         gff = GlobalFrameFeatures.build(ik_solutions=ik_solutions,
+                                        human_data=human_data,
                                         controlled_joints_indexes=controlled_joints_indexes,
-                                        dt_mean=dt_mean#,
-                                        # kindyn=kindyn
+                                        dt_mean=dt_mean, plot_global_vels=plot_global_vels,
+                                        plot_human_features=plot_human_features,
+                                        plot_robot_v_human=plot_robot_v_human
                                         )
         gwf = GlobalWindowFeatures.build(window_length_frames=window_length_frames,
                                          window_step=window_step,
@@ -321,7 +453,7 @@ class FeatureExtractor:
             X_i.extend(prev_s)
 
             # Add previous joint velocities (26 components)
-            prev_s_dot = self.global_frame_features.s_dot[i - 2]
+            prev_s_dot = self.global_frame_features.s_dot[i - 1]
             X_i.extend(prev_s_dot)
 
             # Add previous inertial frame base position (3 components)
@@ -333,7 +465,15 @@ class FeatureExtractor:
             prev_base_euler_angles = base_euler_angles
             X_i.extend(prev_base_euler_angles)
 
-            # Store current input vector (130 components)
+            # Add previous human base position expressed in robot base frame (3 components)
+
+            # Add previous human base orientation expressed in robot base frame (3 components)
+
+            # Add previous human base linear velocity expressed in robot base frame (3 components)
+
+            # Add previous human base angular velocity expressed in robot base frame (3 components)
+
+            # Store current input vector (142 components)
             X.append(X_i)
 
         # Debug
@@ -378,7 +518,7 @@ class FeatureExtractor:
             Y_i.extend(current_s)
 
             # Add current joint velocities (26 components)
-            current_s_dot = self.global_frame_features.s_dot[i - 1]
+            current_s_dot = self.global_frame_features.s_dot[i]
             Y_i.extend(current_s_dot)
 
             # Add current inertial frame base position (3 components)
@@ -390,7 +530,15 @@ class FeatureExtractor:
             current_base_euler_angles = base_euler_angles
             Y_i.extend(current_base_euler_angles)
 
-            # Store current output vector (100 components)
+            # Add current human base position expressed in robot base frame (3 components)
+
+            # Add current human base orientation expressed in robot base frame (3 components)
+
+            # Add current human base linear velocity expressed in robot base frame (3 components)
+
+            # Add current human base angular velocity expressed in robot base frame (3 components)
+
+            # Store current output vector (112 components)
             Y.append(Y_i)
 
         # Debug
