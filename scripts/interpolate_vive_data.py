@@ -18,7 +18,7 @@ def interpolate_data(original_data_dict, target_timestamps):
         orientations = original_data_dict[key]['orientations']
         timestamps = original_data_dict[key]['timestamps']
 
-        f = interp1d(timestamps, positions, axis=0)
+        f = interp1d(timestamps, positions, axis=0, fill_value="extrapolate")
         interpolated_positions = f(target_timestamps)
 
         # Remove duplicate samples
@@ -28,9 +28,31 @@ def interpolate_data(original_data_dict, target_timestamps):
 
         # Convert from wxyz to xyzw for interpolation
         tmp = Rotation.from_quat(utils.to_xyzw(orientations.T).T)
-        slerp = Slerp(timestamps, tmp)
-        # Convert back to wxyz form to save
-        interpolated_orientations = utils.to_wxyz(slerp(target_timestamps).as_quat().T).T
+        # slerp = Slerp(timestamps, tmp)
+        # # Convert back to wxyz form to save
+        # print("original and target time lengths: ", np.max(timestamps), np.max(target_timestamps))
+
+        # Handle extrapolation for orientations
+        if np.max(target_timestamps) > np.max(timestamps):
+            max_timestamp = np.max(timestamps)
+            extrapolation_indices = target_timestamps > max_timestamp
+            interpolation_indices = ~extrapolation_indices
+
+            slerp = Slerp(timestamps, tmp)
+            interpolated_orientations = np.zeros((len(target_timestamps), 4))
+
+            # Interpolate within the original timestamp range
+            interpolated_orientations[interpolation_indices] = slerp(target_timestamps[interpolation_indices]).as_quat()
+
+            # Extrapolate beyond the original timestamp range
+            last_orientation = orientations[-1]
+            interpolated_orientations[extrapolation_indices] = last_orientation
+        else:
+            slerp = Slerp(timestamps, tmp)
+            interpolated_orientations = slerp(target_timestamps).as_quat()
+
+        # interpolated_orientations = utils.to_wxyz(slerp(target_timestamps).as_quat().T).T
+        interpolated_orientations = utils.to_wxyz(interpolated_orientations.T).T
 
         interpolated_data[key] = {
                 'positions': interpolated_positions,
