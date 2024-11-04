@@ -3,6 +3,8 @@ import os
 import scipy.io
 from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
+from scipy.spatial.transform import Slerp, Rotation
+from pi_learning_for_collaborative_carrying.data_processing import utils
 
 def interpolate_data(original_data_dict, target_timestamps):
     """
@@ -15,16 +17,20 @@ def interpolate_data(original_data_dict, target_timestamps):
         positions = original_data_dict[key]['positions']
         orientations = original_data_dict[key]['orientations']
         timestamps = original_data_dict[key]['timestamps']
-        interpolated_positions = np.zeros((len(target_timestamps), positions.shape[1]))
-        interpolated_orientations = np.zeros((len(target_timestamps), orientations.shape[1]))
 
-        for i in range(original_data_dict[key]['positions'].shape[1]):
-            interp_func = interp1d(timestamps, original_data_dict[key]['positions'][:, i], kind='linear', fill_value="extrapolate")
-            interpolated_positions[:, i] = interp_func(target_timestamps)
+        f = interp1d(timestamps, positions, axis=0)
+        interpolated_positions = f(target_timestamps)
 
-        for i in range(original_data_dict[key]['orientations'].shape[1]):
-            interp_func = interp1d(timestamps, original_data_dict[key]['orientations'][:, i], kind='linear', fill_value="extrapolate")
-            interpolated_orientations[:, i] = interp_func(target_timestamps)
+        # Remove duplicate samples
+        unique_indices = np.unique(timestamps, return_index=True)[1]
+        timestamps = timestamps[unique_indices]
+        orientations = orientations[unique_indices]
+
+        # Convert from wxyz to xyzw for interpolation
+        tmp = Rotation.from_quat(utils.to_xyzw(orientations.T).T)
+        slerp = Slerp(timestamps, tmp)
+        # Convert back to wxyz form to save
+        interpolated_orientations = utils.to_wxyz(slerp(target_timestamps).as_quat().T).T
 
         interpolated_data[key] = {
                 'positions': interpolated_positions,
@@ -88,9 +94,23 @@ def main(data_location):
     # Plot the original and interpolated position data for some frames just to check
     key_to_plot = 'vive_tracker_left_elbow_pose2'
     plt.figure(1)
-    plt.plot(cut_data[key_to_plot]['timestamps'], cut_data[key_to_plot]['positions'][:, 1], label='Original leader waist z')
-    plt.plot(interpolated_vive_data[key_to_plot]['timestamps'], interpolated_vive_data[key_to_plot]['positions'][:, 1], linestyle="--", label='Interp leader waist z')
+    plt.plot(cut_data[key_to_plot]['timestamps'], cut_data[key_to_plot]['positions'], label='Original leader positions')
+    plt.plot(interpolated_vive_data[key_to_plot]['timestamps'], interpolated_vive_data[key_to_plot]['positions'], linestyle="--", label='Interp leader positions')
     plt.legend()
+    # plt.savefig("../datasets/plots/interp_vive_l_elbow_2_positions.png")
+
+    plt.figure(2)
+    plt.plot(cut_data[key_to_plot]['timestamps'], cut_data[key_to_plot]['orientations'], label='Original leader quaternions')
+    plt.plot(interpolated_vive_data[key_to_plot]['timestamps'], interpolated_vive_data[key_to_plot]['orientations'], linestyle="--", label='Interp leader quaternions')
+    plt.legend()
+    # plt.savefig("../datasets/plots/interp_vive_l_elbow_2_quaternions.png")
+
+    plt.figure(3)
+    plt.plot(cut_data[key_to_plot]['timestamps'], np.linalg.norm(cut_data[key_to_plot]['orientations'], axis=1), label='Raw data quaternion norms')
+    plt.plot(interpolated_vive_data[key_to_plot]['timestamps'], np.linalg.norm(interpolated_vive_data[key_to_plot]['orientations'], axis=1), linestyle="--", label='Interpolated data quaternion norms')
+    plt.ylim([0.0, 2.0])
+    plt.legend()
+    # plt.savefig("../datasets/plots/interp_vive_l_elbow_2_quat_norms.png")
     plt.show()
 
     # Save the interpolated data
