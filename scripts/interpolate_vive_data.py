@@ -26,8 +26,8 @@ def interpolate_data(original_data_dict, target_timestamps):
         timestamps = timestamps[unique_indices]
         orientations = orientations[unique_indices]
 
-        # Convert from wxyz to xyzw for interpolation
-        tmp = Rotation.from_quat(orientations, scalar_first=True) # assume wxyz raw data form
+        # Create rotation matrix for interpolation
+        tmp = Rotation.from_quat(orientations) # assume xyzw raw data form
 
         # Handle extrapolation for orientations
         if np.max(target_timestamps) > np.max(timestamps):
@@ -46,7 +46,7 @@ def interpolate_data(original_data_dict, target_timestamps):
             interpolated_orientations[extrapolation_indices] = last_orientation
         else:
             slerp = Slerp(timestamps, tmp)
-            interpolated_orientations = slerp(target_timestamps).as_quat(scalar_first=True)
+            interpolated_orientations = slerp(target_timestamps).as_quat()
 
         interpolated_data[key] = {
                 'positions': interpolated_positions,
@@ -106,28 +106,6 @@ def main(data_location):
 
     # Interpolate the data
     interpolated_vive_data = interpolate_data(cut_data, target_timestamps)
-
-    # Plot the original and interpolated position data for some frames just to check
-    key_to_plot = 'vive_tracker_left_elbow_pose2'
-    plt.figure(1)
-    plt.plot(cut_data[key_to_plot]['timestamps'], cut_data[key_to_plot]['positions'], label='Original leader positions')
-    plt.plot(interpolated_vive_data[key_to_plot]['timestamps'], interpolated_vive_data[key_to_plot]['positions'], linestyle="--", label='Interp leader positions')
-    plt.legend()
-    # plt.savefig("../datasets/plots/interp_vive_l_elbow_2_positions.png")
-
-    plt.figure(2)
-    plt.plot(cut_data[key_to_plot]['timestamps'], cut_data[key_to_plot]['orientations'], label='Original leader quaternions')
-    plt.plot(interpolated_vive_data[key_to_plot]['timestamps'], interpolated_vive_data[key_to_plot]['orientations'], linestyle="--", label='Interp leader quaternions')
-    plt.legend()
-    # plt.savefig("../datasets/plots/interp_vive_l_elbow_2_quaternions.png")
-
-    plt.figure(3)
-    plt.plot(cut_data[key_to_plot]['timestamps'], np.linalg.norm(cut_data[key_to_plot]['orientations'], axis=1), label='Raw data quaternion norms')
-    plt.plot(interpolated_vive_data[key_to_plot]['timestamps'], np.linalg.norm(interpolated_vive_data[key_to_plot]['orientations'], axis=1), linestyle="--", label='Interpolated data quaternion norms')
-    plt.ylim([0.0, 2.0])
-    plt.legend()
-    # plt.savefig("../datasets/plots/interp_vive_l_elbow_2_quat_norms.png")
-    plt.show()
 
     # Save the interpolated data
     save_data(output_file, interpolated_vive_data)
