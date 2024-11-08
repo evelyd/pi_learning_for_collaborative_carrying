@@ -77,14 +77,9 @@ assert ok
 # Original mocap data
 script_directory = os.path.dirname(os.path.abspath(__file__))
 mocap_filename = os.path.join(script_directory, data_location + "/follower/parsed_ifeel_data.mat")
-
-# Define the relevant data for retargeting purposes
-# start_time_dict = {"leader_backward/follower": 12.4262, "leader_forward/follower": 25.34, "leader_backward/leader": 11.6305, "leader_forward/leader": 25.0275}
-
 vive_path = os.path.join(script_directory, data_location + "/vive/interpolated_vive_data.mat")
 
-start_end_ind_dict = {"forward_backward/follower": [2049, 5173], "left_right/follower": [4539, 9193]} #iFeel leader, iFeel follower, Vive
-
+start_end_ind_dict = {"forward_backward/follower": [2049, 5173], "left_right/follower": [4539, 9193]}
 # Extract the relevant part of the file name to determine the start time
 file_key = None
 for key in start_end_ind_dict.keys():
@@ -135,19 +130,10 @@ kindyn.setJointPos(qp_ik_params.get_parameter_vector_float("calibration_joint_po
 initial_base_height = utils.define_initial_base_height(robot="ergoCubV1")
 
 # Set the robot to start at the pose of the first base measurement
-initial_base_position = np.array([motiondata.initial_base_position[0], motiondata.initial_base_position[1], 0.0])
-initial_base_orientation = motiondata.initial_base_orientation #coming from wxyz format
-initial_base_rotation = Rotation.from_quat(initial_base_orientation, scalar_first=True)
-
-# Set the initial base position and orientation based on the measurements
-initial_transform = idyn.Transform()
-initial_transform.setPosition(idyn.Position(initial_base_position))
-initial_transform.setRotation(idyn.Rotation(initial_base_rotation.as_matrix()))
+initial_transform = idyn.Transform(motiondata.initial_base_pose)
 kindyn.setWorldBaseTransform(initial_transform)
 
 humanIK.initialize(qp_ik_params, kindyn)
-
-input("next")
 humanIK.setDt(0.01)
 
 # ===========

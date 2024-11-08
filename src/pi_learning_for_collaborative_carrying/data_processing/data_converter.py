@@ -67,7 +67,7 @@ class DataConverter:
 
         node_struct = {}
 
-        task_name_dict = {'PELVIS_TASK': 'root_link_desired', 'LEFT_HAND_TASK': 'vive_tracker_left_elbow_pose', 'RIGHT_HAND_TASK': 'vive_tracker_right_elbow_pose'} #TODO this depends on who was the follower
+        task_name_dict = {'PELVIS_TASK': 'vive_tracker_waist_pose', 'LEFT_HAND_TASK': 'vive_tracker_left_elbow_pose', 'RIGHT_HAND_TASK': 'vive_tracker_right_elbow_pose'} #TODO this depends on who was the follower
 
         for key, item in self.mocap_metadata.metadata.items():
 
@@ -81,20 +81,31 @@ class DataConverter:
             elif item_type == "SE3Task":
 
                 # Rotate the values into the world frame
-                I_R_tracker = Rotation.from_matrix(np.array([[0, 0, -1],
-                                                             [-1, 0, 0],
-                                                             [0, 1, 0]]))
+                I_H_openxr_origin = np.array([[0, 0, -1, 0],
+                                        [-1, 0, 0, 0],
+                                        [0, 1, 0, 0],
+                                        [0, 0, 0, 1]])
 
-                # Get the rotation for the world_fixed
-                tracker_R_world_fixed = Rotation.from_quat(self.vive_data['world_fixed']['orientations'][0][0][0], scalar_first=True) #they are all the same
+                waist_tracker_H_root_link = np.array([[0, 1, 0, 0],
+                                                 [0, 0, 1, -0.1],
+                                                 [1, 0, 0, 0.1],
+                                                 [0, 0, 0, 1]])
 
                 # Get the base position and rotate into world frame
                 positions = self.vive_data[task_name_dict[key]]['positions'][0][0]
-                positions = [(tracker_R_world_fixed.inv()).apply(pos) for pos in positions]
 
                 # Rotate orientations into the world frame, correctly this time
                 quaternions = self.vive_data[task_name_dict[key]]['orientations'][0][0]
-                quaternions = [(tracker_R_world_fixed.inv() * Rotation.from_quat(quat, scalar_first=True)).as_quat(scalar_first=True) for quat in quaternions]
+
+                # Define the transformation matrix of raw data
+                openxr_origin_H_waist_trackers = [np.vstack((np.hstack((Rotation.from_quat(quat).as_matrix(), pos.reshape(3, 1))), [0, 0, 0, 1])) for pos, quat in zip(positions, quaternions)]
+
+                # Apply the transformation to the data
+                I_H_waist_poses = [I_H_openxr_origin @ openxr_origin_H_waist_tracker @ waist_tracker_H_root_link for openxr_origin_H_waist_tracker in openxr_origin_H_waist_trackers]
+
+                # Extract the positions and orientations
+                positions = [pose[:3, 3] for pose in I_H_waist_poses]
+                quaternions = [Rotation.from_matrix(pose[:3, :3]).as_quat() for pose in I_H_waist_poses]
 
                 # Normalize the quaternions
                 quaternions = [utils.normalize_quaternion(quat) for quat in quaternions]
@@ -104,14 +115,19 @@ class DataConverter:
 
                 # Save the first base pose
                 if key == 'PELVIS_TASK':
-                    motiondata.initial_base_position = positions[0]
-                    motiondata.initial_base_orientation = quaternions[0]
+                    initial_base_pose = I_H_waist_poses[0]
+                    np.put(initial_base_pose, 11, 0.0)
+                    motiondata.initial_base_pose = initial_base_pose
 
             # Store orientation task data
             elif item_type == "SO3Task":
                 # Assumes wxyz format
                 quaternions = [utils.normalize_quaternion(quat) for quat in mocap_data_cleaned['node' + str(item['node_number'])]['orient']]
+                # Rotate into the vive world frame
                 angular_velocities = mocap_data_cleaned['node' + str(item['node_number'])]['gyro']
+
+                # Normalize the quaternions
+                quaternions = [utils.normalize_quaternion(quat) for quat in quaternions]
 
                 task = motion_data.SO3Task(name=key, orientations=quaternions, angular_velocities=angular_velocities)
                 motiondata.SO3Tasks.append(asdict(task))

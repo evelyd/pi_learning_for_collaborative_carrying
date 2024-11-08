@@ -54,9 +54,7 @@ class MotionData:
     FloorContactTasks: List[dict] = field(default_factory=list)
     GravityTasks: List[dict] = field(default_factory=list)
     SampleDurations: List[float] = field(default_factory=list)
-
-    initial_base_position: List[float] = field(default_factory=list)
-    initial_base_orientation: List[float] = field(default_factory=list)
+    initial_base_pose: List[float] = field(default_factory=lambda: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
 
     @staticmethod
     def build() -> "MotionData":
@@ -76,7 +74,7 @@ class MocapMetadata:
     metadata: Dict = field(default_factory=dict)
 
     @staticmethod
-    def build(start_ind: int, end_ind: int) -> "MocapMetadata":
+    def build(start_ind: int = 0, end_ind: int = -1) -> "MocapMetadata":
         """Build an empty MocapMetadata."""
 
         return MocapMetadata(start_ind=start_ind, end_ind=end_ind)

@@ -2,19 +2,19 @@ tasks = [
     "PELVIS_TASK",
     # "RIGHT_HAND_TASK",
     # "LEFT_HAND_TASK",
-    # "T8_TASK",
-    # "RIGHT_UPPER_ARM_TASK",
-    # "RIGHT_FORE_ARM_TASK",
-    # "LEFT_UPPER_ARM_TASK",
-    # "LEFT_FORE_ARM_TASK",
-    # "RIGHT_UPPER_LEG_TASK",
-    # "RIGHT_LOWER_LEG_TASK",
-    # "LEFT_UPPER_LEG_TASK",
-    # "LEFT_LOWER_LEG_TASK",
-    # "RIGHT_TOE_TASK",
-    # "LEFT_TOE_TASK",
-    # "RIGHT_FOOT_TASK",
-    # "LEFT_FOOT_TASK",
+    "T8_TASK",
+    "RIGHT_UPPER_ARM_TASK",
+    "RIGHT_FORE_ARM_TASK",
+    "LEFT_UPPER_ARM_TASK",
+    "LEFT_FORE_ARM_TASK",
+    "RIGHT_UPPER_LEG_TASK",
+    "RIGHT_LOWER_LEG_TASK",
+    "LEFT_UPPER_LEG_TASK",
+    "LEFT_LOWER_LEG_TASK",
+    "RIGHT_TOE_TASK",
+    "LEFT_TOE_TASK",
+    "RIGHT_FOOT_TASK",
+    "LEFT_FOOT_TASK",
     "JOINT_LIMITS_TASK",
     "JOINT_REG_TASK",
     "JOINT_VEL_LIMITS_TASK"
@@ -212,7 +212,7 @@ frame_name = "r_foot_front"
 kp_linear = 60.0
 node_number = 2
 mask = [true, true, true]
-weight = [1.0, 1.0, 1.0]
+weight = [15.0, 15.0, 15.0]
 vertical_force_threshold = 60.0
 
 [LEFT_TOE_TASK]
@@ -223,7 +223,7 @@ frame_name = "l_foot_front"
 kp_linear = 60.0
 node_number = 1
 mask = [true, true, true]
-weight = [1.0, 1.0, 1.0]
+weight = [15.0, 15.0, 15.0]
 vertical_force_threshold = 60.0
 
 [JOINT_LIMITS_TASK]

@@ -47,7 +47,7 @@ def parse_and_organize_log_file(log_file_path):
                     name = parts[1]
                     pose_timestamp = float(parts[2])
                     pos = list(map(float, parts[4:7]))
-                    wxyz = list(map(float, parts[7:11]))
+                    xyzw = list(map(float, parts[7:11]))
                     if name not in organized_data:
                         organized_data[name] = {
                             'timestamps': [],
@@ -56,7 +56,7 @@ def parse_and_organize_log_file(log_file_path):
                         }
                     organized_data[name]['timestamps'].append(pose_timestamp)
                     organized_data[name]['positions'].append(pos)
-                    organized_data[name]['orientations'].append(wxyz)
+                    organized_data[name]['orientations'].append(xyzw)
 
     # Convert lists to numpy arrays
     for name in organized_data:
@@ -98,17 +98,3 @@ organized_data = parse_and_organize_log_file(log_file_path)
 
 # Save the parsed data to a .mat file
 save_organized_data_to_mat(organized_data, mat_file_path)
-
-# Create a plot of all the 4 different positions of headset 1 on a 3d plot
-fig, ax = plt.subplots(1, 1, subplot_kw={'projection': '3d'}, figsize=(15, 15))
-pose_names = ['vive_tracker_waist_pose', 'openxr_head', 'vive_tracker_left_elbow_pose', 'vive_tracker_right_elbow_pose']
-colors = ['r', 'b', 'g', 'y']
-plot_positions(organized_data, pose_names, ax, colors=colors)
-
-# Create a plot of all the 4 different positions of headset 2 on a 3d plot
-fig, ax = plt.subplots(1, 1, subplot_kw={'projection': '3d'}, figsize=(15, 15))
-pose_names = ['vive_tracker_waist_pose2', 'openxr_head2', 'vive_tracker_left_elbow_pose2', 'vive_tracker_right_elbow_pose2']
-colors = ['r', 'b', 'g', 'y']
-plot_positions(organized_data, pose_names, ax, colors=colors)
-
-plt.show()
