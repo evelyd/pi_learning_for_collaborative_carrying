@@ -12,6 +12,8 @@ from scipy.spatial.transform import Rotation
 import manifpy as manif
 import biomechanical_analysis_framework as baf
 
+import matplotlib.pyplot as plt
+
 @dataclass
 class IKTargets:
     """Class to manipulate the targets for the IK used in the retargeting pipeline."""
@@ -193,18 +195,29 @@ class WBGR:
             # ==============
 
             # Update orientation and gravity tasks
-            for task in self.motiondata.SO3Tasks + self.motiondata.GravityTasks:
+            for task in self.motiondata.SE3Tasks + self.motiondata.SO3Tasks + self.motiondata.GravityTasks:
 
                 # Extract data for the update
                 group_name = task['name']
                 task_type = self.metadata.metadata[group_name]['type']
                 I_quat_IMU = np.array(task['orientations'][i])
                 node_number = self.metadata.metadata[group_name]['node_number']
+                frame_name = self.metadata.metadata[group_name]['frame_name']
 
                 # Get the orientation data in manif SO3 format
                 I_R_IMU_manif = manif.SO3(quaternion=utils.to_xyzw(I_quat_IMU))
 
-                if task_type == 'SO3Task':
+                if task_type == 'SE3Task':
+                    # Get the position and the linear velocity of the task
+                    I_position = np.array(task['positions'][i])
+                    I_linear_velocity = np.zeros(3)
+
+                    # Get the angular velocity data in manif SO3Tangent format
+                    I_omega_IMU_manif = manif.SO3Tangent(np.zeros(3))
+
+                    assert self.humanIK.updatePoseTask(frame_name, I_position, I_R_IMU_manif, I_linear_velocity, I_omega_IMU_manif)
+
+                elif task_type == 'SO3Task':
                     # Get the angular velocity data in manif SO3Tangent format
                     I_omega_IMU = np.array(task['angular_velocities'][i])
                     I_omega_IMU_manif = manif.SO3Tangent(I_omega_IMU)
@@ -263,5 +276,39 @@ class WBGR:
 
             # Store the ik solutions
             ik_solutions.append(ik_solution)
+
+        # Plot the targets against the actual ones (only x and y for position)
+        target_positions = np.squeeze(np.array([task['positions'] for task in self.motiondata.SE3Tasks if task['name'] == "PELVIS_TASK"]))
+        actual_positions = np.array([sol.base_position for sol in ik_solutions])
+        target_orientations = Rotation.from_quat(np.array(task['orientations']), scalar_first=True).as_euler('xyz')
+
+        # plt.figure()
+        # plt.scatter(target_positions[0, 0], target_positions[0, 1], color='red', label='First Target Position')
+        # plt.scatter(actual_positions[0, 0], actual_positions[0, 1], color='blue', label='First Actual Position')
+        # plt.plot(target_positions[:, 0], target_positions[:, 1], label='Target Positions')
+        # plt.plot(actual_positions[:, 0], actual_positions[:, 1], label='Actual Positions')
+        # plt.xlabel('X Position')
+        # plt.ylabel('Y Position')
+        # plt.legend()
+        # plt.title('Target vs Actual Base Positions')
+
+        plt.figure()
+        plt.plot(target_orientations[:, 0], color='red', label='Target roll')
+        plt.plot(target_orientations[:, 1], color='blue', label='Target pitch')
+        plt.plot(target_orientations[:, 2], color='green', label='Target yaw')
+        plt.xlabel('Timesteps')
+        plt.ylabel('Orientation (rad)')
+        plt.legend()
+
+        plt.figure()
+        plt.plot(np.array(task['orientations'])[:, 0], color='red', label='Target w')
+        plt.plot(np.array(task['orientations'])[:, 1], color='blue', label='Target x')
+        plt.plot(np.array(task['orientations'])[:, 2], color='green', label='Target y')
+        plt.plot(np.array(task['orientations'])[:, 3], color='black', label='Target z')
+        plt.xlabel('Timesteps')
+        plt.ylabel('Orientation (rad)')
+        plt.legend()
+
+        plt.show()
 
         return timestamps, ik_solutions

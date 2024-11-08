@@ -48,7 +48,6 @@ def parse_and_organize_log_file(log_file_path):
         for data_type in ['orient', 'ft6D', 'gyro']:
             organized_data[node_key][data_type] = np.array(organized_data[node_key][data_type])
     organized_data['timestamps'] = np.array(timestamps)
-    print(organized_data.keys())
 
     return organized_data
 
@@ -117,13 +116,21 @@ data_location = args.data_location
 
 # Get path to retargeted data
 script_directory = os.path.dirname(os.path.abspath(__file__))
-log_file_path = os.path.join(script_directory, data_location + "/follower/data.log")
-mat_file_path = os.path.join(script_directory, data_location + "/follower/parsed_ifeel_data.mat")
+# follower_log_file_path = os.path.join(script_directory, data_location + "/follower/data.log")
+follower_log_file_path = "/home/evelyd/pi_learning_for_collaborative_carrying/datasets/collaborative_payload_carrying/ifeel_and_vive/oct25_2024/raw_data/evelyn/experiment_dir_f-b/suit_00001/data.log"
+follower_mat_file_path = os.path.join(script_directory, data_location + "/follower/parsed_ifeel_data.mat")
+leader_log_file_path = os.path.join(script_directory, data_location + "/leader/data.log")
+leader_mat_file_path = os.path.join(script_directory, data_location + "/leader/parsed_ifeel_data.mat")
 
 # Parse and organize the log file
-organized_data = parse_and_organize_log_file(log_file_path)
+follower_organized_data = parse_and_organize_log_file(follower_log_file_path)
+leader_organized_data = parse_and_organize_log_file(leader_log_file_path)
 
+# Switch node3 to node5 for follower for oct25_2024 data
+if "oct25_2024" in follower_log_file_path:
+    follower_organized_data['node5'] = follower_organized_data.pop('node3')
 # Save the organized data to a .mat file
-save_organized_data_to_mat(organized_data, mat_file_path)
+save_organized_data_to_mat(follower_organized_data, follower_mat_file_path)
+save_organized_data_to_mat(leader_organized_data, leader_mat_file_path)
 
-print("Data has been parsed and saved to", mat_file_path)
+print("Data has been parsed and saved to", follower_mat_file_path, leader_mat_file_path)

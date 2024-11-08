@@ -19,6 +19,16 @@ class GravityTask:
     orientations: List[float]
 
 @dataclass
+class SE3Task:
+    """Class for storing a sequence of poses of a pose task."""
+
+    name: str
+    positions: List[float]
+    orientations: List[float]
+    # linear_velocities: List[float]
+    # angular_velocities: List[float]
+
+@dataclass
 class SO3Task:
     """Class for storing a sequence of orientations of an orientation task."""
 
@@ -39,10 +49,14 @@ class MotionData:
     before retargeting. The format includes task data associated with timestamps.
     """
     CalibrationData: Dict = field(default_factory=dict)
+    SE3Tasks: List[dict] = field(default_factory=list)
     SO3Tasks: List[dict] = field(default_factory=list)
     FloorContactTasks: List[dict] = field(default_factory=list)
     GravityTasks: List[dict] = field(default_factory=list)
     SampleDurations: List[float] = field(default_factory=list)
+
+    initial_base_position: List[float] = field(default_factory=list)
+    initial_base_orientation: List[float] = field(default_factory=list)
 
     @staticmethod
     def build() -> "MotionData":
@@ -57,15 +71,15 @@ class MocapMetadata:
     and links considered in the data collection as well as the root link of the model.
     """
 
-    start_time: float = 0.0
-    root_link: str = ""
+    start_ind: int = 0
+    end_ind: int = -1
     metadata: Dict = field(default_factory=dict)
 
     @staticmethod
-    def build(start_time: float) -> "MocapMetadata":
+    def build(start_ind: int, end_ind: int) -> "MocapMetadata":
         """Build an empty MocapMetadata."""
 
-        return MocapMetadata(start_time=start_time)
+        return MocapMetadata(start_ind=start_ind, end_ind=end_ind)
 
     def add_timestamp(self) -> None:
         """Indicate that the data samples are associated with timestamps."""
@@ -75,10 +89,12 @@ class MocapMetadata:
     def add_task(self,
                  task_name: str,
                  task_type: str,
-                 node_number: int) -> None:
+                 node_number: int,
+                 frame_name: str) -> None:
         """Describe the task."""
 
         self.metadata[task_name] = {
             'type': task_type,
-            'node_number': node_number
+            'node_number': node_number,
+            "frame_name": frame_name
         }

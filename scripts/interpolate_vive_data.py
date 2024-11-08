@@ -27,10 +27,7 @@ def interpolate_data(original_data_dict, target_timestamps):
         orientations = orientations[unique_indices]
 
         # Convert from wxyz to xyzw for interpolation
-        tmp = Rotation.from_quat(utils.to_xyzw(orientations.T).T)
-        # slerp = Slerp(timestamps, tmp)
-        # # Convert back to wxyz form to save
-        # print("original and target time lengths: ", np.max(timestamps), np.max(target_timestamps))
+        tmp = Rotation.from_quat(orientations, scalar_first=True) # assume wxyz raw data form
 
         # Handle extrapolation for orientations
         if np.max(target_timestamps) > np.max(timestamps):
@@ -49,10 +46,7 @@ def interpolate_data(original_data_dict, target_timestamps):
             interpolated_orientations[extrapolation_indices] = last_orientation
         else:
             slerp = Slerp(timestamps, tmp)
-            interpolated_orientations = slerp(target_timestamps).as_quat()
-
-        # interpolated_orientations = utils.to_wxyz(slerp(target_timestamps).as_quat().T).T
-        interpolated_orientations = utils.to_wxyz(interpolated_orientations.T).T
+            interpolated_orientations = slerp(target_timestamps).as_quat(scalar_first=True)
 
         interpolated_data[key] = {
                 'positions': interpolated_positions,

@@ -14,6 +14,7 @@ import bipedal_locomotion_framework.bindings as blf
 import jaxsim.api as js
 import resolve_robotics_uri_py
 import biomechanical_analysis_framework as baf
+from scipy.spatial.transform import Rotation
 
 # ==================
 # USER CONFIGURATION
@@ -22,7 +23,7 @@ import biomechanical_analysis_framework as baf
 parser = argparse.ArgumentParser()
 
 parser.add_argument("--data_location", help="Mocap file to be retargeted. Relative path from script folder.",
-                    type=str, default="../datasets/collaborative_payload_carrying/leader_backward/")
+                    type=str, default="../datasets/collaborative_payload_carrying/ifeel_and_vive/oct25_2024/forward_backward")
 parser.add_argument("--save", help="Store the retargeted motion in json format.", action="store_true")
 parser.add_argument("--deactivate_visualization", help="Do not visualize the retargeted motion.", action="store_true")
 
@@ -75,14 +76,18 @@ assert ok
 
 # Original mocap data
 script_directory = os.path.dirname(os.path.abspath(__file__))
-mocap_filename = os.path.join(script_directory, data_location + "follower.mat")
+mocap_filename = os.path.join(script_directory, data_location + "/follower/parsed_ifeel_data.mat")
 
 # Define the relevant data for retargeting purposes
-start_time_dict = {"leader_backward/follower": 12.4262, "leader_forward/follower": 25.34, "leader_backward/leader": 11.6305, "leader_forward/leader": 25.0275}
+# start_time_dict = {"leader_backward/follower": 12.4262, "leader_forward/follower": 25.34, "leader_backward/leader": 11.6305, "leader_forward/leader": 25.0275}
+
+vive_path = os.path.join(script_directory, data_location + "/vive/interpolated_vive_data.mat")
+
+start_end_ind_dict = {"forward_backward/follower": [2049, 5173], "left_right/follower": [4539, 9193]} #iFeel leader, iFeel follower, Vive
 
 # Extract the relevant part of the file name to determine the start time
 file_key = None
-for key in start_time_dict.keys():
+for key in start_end_ind_dict.keys():
     if key in mocap_filename:
         file_key = key
         break
@@ -90,8 +95,9 @@ for key in start_time_dict.keys():
 if file_key is None:
     raise ValueError("The file name does not correspond to a defined start time.")
 
-start_time = start_time_dict[file_key]
-metadata = motion_data.MocapMetadata.build(start_time=start_time)
+start_ind = start_end_ind_dict[file_key][0]
+end_ind = start_end_ind_dict[file_key][1]
+metadata = motion_data.MocapMetadata.build(start_ind=start_ind, end_ind=end_ind)
 metadata.add_timestamp()
 
 # Add the tasks to which to assign the target orientation or force data
@@ -100,11 +106,18 @@ for task_name in qp_ik_params.get_parameter_vector_string("tasks"):
     # Check for node number, if there is none, use 0
     node_number = qp_ik_params.get_group(task_name).get_parameter_int("node_number") if ("node_number" in str(qp_ik_params.get_group(task_name))) else 0
 
+    if ("target_frame_name" in str(qp_ik_params.get_group(task_name))):
+        frame_name = qp_ik_params.get_group(task_name).get_parameter_string("target_frame_name")
+    elif ("frame_name" in str(qp_ik_params.get_group(task_name))):
+        frame_name = qp_ik_params.get_group(task_name).get_parameter_string("frame_name")
+    else:
+        frame_name = ""
+
     # Add a new task to the metadata
-    metadata.add_task(task_name, task_type, node_number)
+    metadata.add_task(task_name, task_type, node_number, frame_name)
 
 # Instantiate the data converter
-converter = data_converter.DataConverter.build(mocap_filename=mocap_filename,
+converter = data_converter.DataConverter.build(mocap_filename=mocap_filename, vive_filename=vive_path,
                                                           mocap_metadata=metadata)
 # Convert the mocap data
 motiondata = converter.convert()
@@ -118,15 +131,28 @@ humanIK = baf.ik.HumanIK()
 # Set the robot to calibration pose
 kindyn.setJointPos(qp_ik_params.get_parameter_vector_float("calibration_joint_positions"))
 
+# Define the initial base height
+initial_base_height = utils.define_initial_base_height(robot="ergoCubV1")
+
+# Set the robot to start at the pose of the first base measurement
+initial_base_position = np.array([motiondata.initial_base_position[0], motiondata.initial_base_position[1], 0.0])
+initial_base_orientation = motiondata.initial_base_orientation #coming from wxyz format
+initial_base_rotation = Rotation.from_quat(initial_base_orientation, scalar_first=True)
+
+# Set the initial base position and orientation based on the measurements
+initial_transform = idyn.Transform()
+initial_transform.setPosition(idyn.Position(initial_base_position))
+initial_transform.setRotation(idyn.Rotation(initial_base_rotation.as_matrix()))
+kindyn.setWorldBaseTransform(initial_transform)
+
 humanIK.initialize(qp_ik_params, kindyn)
+
+input("next")
 humanIK.setDt(0.01)
 
 # ===========
 # RETARGETING
 # ===========
-
-# Define the initial base height
-initial_base_height = utils.define_initial_base_height(robot="ergoCubV1")
 
 # Instantiate the retargeter
 retargeter = ifeel_data_retargeter.WBGR.build(motiondata=motiondata,

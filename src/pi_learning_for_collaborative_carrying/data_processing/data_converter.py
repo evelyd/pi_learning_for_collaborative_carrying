@@ -8,52 +8,110 @@ from pi_learning_for_collaborative_carrying.data_processing import utils
 import numpy as np
 import biomechanical_analysis_framework as baf
 import manifpy as manif
+import scipy.io
+from scipy.spatial.transform import Rotation
+
 
 @dataclass
 class DataConverter:
     """Class for converting MoCap data collected using iFeel into the intermediate MoCap data format."""
 
     mocap_data: dict
+    vive_data: dict
     mocap_metadata: motion_data.MocapMetadata
 
     @staticmethod
-    def build(mocap_filename: str, mocap_metadata: motion_data.MocapMetadata) -> "DataConverter":
+    def build(mocap_filename: str, vive_filename: str, mocap_metadata: motion_data.MocapMetadata) -> "DataConverter":
         """Build a DataConverter."""
 
         # Read in the mat file of the data as a h5py file, which acts the same as a python dict
-        mocap_data = h5py.File(mocap_filename, 'r')
+        mocap_data = scipy.io.loadmat(mocap_filename)
 
-        return DataConverter(mocap_data=mocap_data, mocap_metadata=mocap_metadata)
+        # Read the vive data into a dict
+        vive_data = scipy.io.loadmat(vive_filename)
+
+        return DataConverter(mocap_data=mocap_data, vive_data=vive_data, mocap_metadata=mocap_metadata)
+
+    def clean_mocap_data(self):
+        """Clean the mocap data from irrelevant information."""
+        mocap_data_cleaned = {key: {} for key in self.mocap_data.keys() if key not in ['__header__', '__version__', '__globals__']}
+        for key in self.mocap_data.keys():
+            if key not in ['__header__', '__version__', '__globals__']:
+
+                if key == 'timestamps':
+                    timestamps = self.mocap_data[key][0][self.mocap_metadata.start_ind:self.mocap_metadata.end_ind] - self.mocap_data[key][0][self.mocap_metadata.start_ind]
+                    mocap_data_cleaned[key] = timestamps
+                else:
+                    # Extract the array from the nested structure
+                    orientations = self.mocap_data[key]['orient'][0][0]
+                    forces = self.mocap_data[key]['ft6D'][0][0]
+                    ang_vels = self.mocap_data[key]['gyro'][0][0]
+
+                    # Cut the data at the start time
+                    orientations = orientations[self.mocap_metadata.start_ind:self.mocap_metadata.end_ind]
+                    forces = forces[self.mocap_metadata.start_ind:self.mocap_metadata.end_ind]
+                    ang_vels = ang_vels[self.mocap_metadata.start_ind:self.mocap_metadata.end_ind]
+
+                    mocap_data_cleaned[key]['orient'] = orientations
+                    mocap_data_cleaned[key]['ft6D'] = forces
+                    mocap_data_cleaned[key]['gyro'] = ang_vels
+
+        return mocap_data_cleaned
 
     def convert(self) -> motion_data.MotionData:
         """Convert the collected mocap data from the original to the intermediate format."""
 
-        # Clean mocap frames from irrelevant information
-        mocap_data_cleaned = self.mocap_data['robot_logger_device']
-
         motiondata = motion_data.MotionData.build()
 
+        mocap_data_cleaned = self.clean_mocap_data()
+
         node_struct = {}
+
+        task_name_dict = {'PELVIS_TASK': 'root_link_desired', 'LEFT_HAND_TASK': 'vive_tracker_left_elbow_pose', 'RIGHT_HAND_TASK': 'vive_tracker_right_elbow_pose'} #TODO this depends on who was the follower
 
         for key, item in self.mocap_metadata.metadata.items():
 
             item_type = item['type']
 
-            # Get the index of the timestamp closest to the start time
-            zeroed_timestamps = np.squeeze(mocap_data_cleaned['shoe1']['FT']['timestamps'][:] - mocap_data_cleaned['shoe1']['FT']['timestamps'][0])
-
-            start_time_index = np.argmin(np.abs(zeroed_timestamps - self.mocap_metadata.start_time))
-
             # Retrieve and store timestamps for the entire dataset
             if item_type == "TimeStamp":
-                timestamps = zeroed_timestamps[start_time_index:] - zeroed_timestamps[start_time_index]
-                motiondata.SampleDurations = timestamps
+                motiondata.SampleDurations = mocap_data_cleaned['timestamps']
+
+            # Store pose task data
+            elif item_type == "SE3Task":
+
+                # Rotate the values into the world frame
+                I_R_tracker = Rotation.from_matrix(np.array([[0, 0, -1],
+                                                             [-1, 0, 0],
+                                                             [0, 1, 0]]))
+
+                # Get the rotation for the world_fixed
+                tracker_R_world_fixed = Rotation.from_quat(self.vive_data['world_fixed']['orientations'][0][0][0], scalar_first=True) #they are all the same
+
+                # Get the base position and rotate into world frame
+                positions = self.vive_data[task_name_dict[key]]['positions'][0][0]
+                positions = [(tracker_R_world_fixed.inv()).apply(pos) for pos in positions]
+
+                # Rotate orientations into the world frame, correctly this time
+                quaternions = self.vive_data[task_name_dict[key]]['orientations'][0][0]
+                quaternions = [(tracker_R_world_fixed.inv() * Rotation.from_quat(quat, scalar_first=True)).as_quat(scalar_first=True) for quat in quaternions]
+
+                # Normalize the quaternions
+                quaternions = [utils.normalize_quaternion(quat) for quat in quaternions]
+
+                task = motion_data.SE3Task(name=key, positions=positions, orientations=quaternions)
+                motiondata.SE3Tasks.append(asdict(task))
+
+                # Save the first base pose
+                if key == 'PELVIS_TASK':
+                    motiondata.initial_base_position = positions[0]
+                    motiondata.initial_base_orientation = quaternions[0]
 
             # Store orientation task data
             elif item_type == "SO3Task":
                 # Assumes wxyz format
-                quaternions = [utils.normalize_quaternion(quat) for quat in np.squeeze(mocap_data_cleaned['node' + str(item['node_number'])]['orientation']['data'][start_time_index:])]
-                angular_velocities = np.squeeze(mocap_data_cleaned['node' + str(item['node_number'])]['angVel']['data'][start_time_index:])
+                quaternions = [utils.normalize_quaternion(quat) for quat in mocap_data_cleaned['node' + str(item['node_number'])]['orient']]
+                angular_velocities = mocap_data_cleaned['node' + str(item['node_number'])]['gyro']
 
                 task = motion_data.SO3Task(name=key, orientations=quaternions, angular_velocities=angular_velocities)
                 motiondata.SO3Tasks.append(asdict(task))
@@ -71,14 +129,14 @@ class DataConverter:
             elif item_type == "GravityTask":
 
                 # Assumes wxyz format
-                quaternions = [utils.normalize_quaternion(quat) for quat in np.squeeze(mocap_data_cleaned['node' + str(item['node_number'])]['orientation']['data'][start_time_index:])]
+                quaternions = [utils.normalize_quaternion(quat) for quat in mocap_data_cleaned['node' + str(item['node_number'])]['orient']]
 
                 task = motion_data.GravityTask(name=key, orientations=quaternions)
                 motiondata.GravityTasks.append(asdict(task))
 
                 # Update node struct for calibration
                 I_R_IMU_calib = manif.SO3(quaternion=utils.normalize_quaternion(utils.to_xyzw(np.array(quaternions[0]))))
-                I_omega_IMU_calib = manif.SO3Tangent(np.squeeze(mocap_data_cleaned['node' + str(item['node_number'])]['angVel']['data'][start_time_index]))
+                I_omega_IMU_calib = manif.SO3Tangent(mocap_data_cleaned['node' + str(item['node_number'])]['gyro'][0])
 
                 nodeData = baf.ik.nodeData()
                 nodeData.I_R_IMU = I_R_IMU_calib
@@ -89,7 +147,7 @@ class DataConverter:
             elif item_type == "FloorContactTask":
 
                 # Take the vertical force from the FT sensor
-                forces = np.squeeze(mocap_data_cleaned['shoe' + str(item['node_number'])]['FT']['data'][start_time_index:])[:,2]
+                forces = np.squeeze(mocap_data_cleaned['node' + str(item['node_number'])]['ft6D'])[:,2]
 
                 task = motion_data.FloorContactTask(name=key, forces=forces)
                 motiondata.FloorContactTasks.append(asdict(task))

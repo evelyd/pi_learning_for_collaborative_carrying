@@ -46,8 +46,8 @@ def parse_and_organize_log_file(log_file_path):
                     origin = parts[0]
                     name = parts[1]
                     pose_timestamp = float(parts[2])
-                    zyx = list(map(float, parts[4:7]))
-                    xyzw = list(map(float, parts[7:11]))
+                    pos = list(map(float, parts[4:7]))
+                    wxyz = list(map(float, parts[7:11]))
                     if name not in organized_data:
                         organized_data[name] = {
                             'timestamps': [],
@@ -55,8 +55,8 @@ def parse_and_organize_log_file(log_file_path):
                             'orientations': []
                         }
                     organized_data[name]['timestamps'].append(pose_timestamp)
-                    organized_data[name]['positions'].append(zyx)
-                    organized_data[name]['orientations'].append(xyzw)
+                    organized_data[name]['positions'].append(pos)
+                    organized_data[name]['orientations'].append(wxyz)
 
     # Convert lists to numpy arrays
     for name in organized_data:
@@ -81,22 +81,17 @@ def plot_positions(data, pose_names, ax, colors = ['r', 'b']):
     ax.set_zlabel('Z')
     ax.legend()
 
-# Function to print all unique pose names
-def print_pose_names(data):
-    pose_names = set(d['name'] for d in data)
-    print("Pose names:", pose_names)
-
 # Main script
 parser = argparse.ArgumentParser()
 parser.add_argument("--data_location", help="Dataset folder to extract features from.",
-                    type=str, default="../datasets/collaborative_payload_carrying/ifeel_and_vive/oct25_2024/forward_backward/vive/")
+                    type=str, default="../datasets/collaborative_payload_carrying/ifeel_and_vive/oct25_2024/forward_backward/")
 args = parser.parse_args()
 data_location = args.data_location
 
 # Get path to retargeted data
 script_directory = os.path.dirname(os.path.abspath(__file__))
-log_file_path = os.path.join(script_directory, data_location + "data.log")
-mat_file_path = os.path.join(script_directory, data_location + "parsed_vive_data.mat")
+log_file_path = os.path.join(script_directory, data_location + "vive/data.log")
+mat_file_path = os.path.join(script_directory, data_location + "vive/parsed_vive_data.mat")
 
 # Organize the data by field
 organized_data = parse_and_organize_log_file(log_file_path)
