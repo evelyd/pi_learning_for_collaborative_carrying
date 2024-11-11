@@ -19,9 +19,11 @@ class DataConverter:
     mocap_data: dict
     vive_data: dict
     mocap_metadata: motion_data.MocapMetadata
+    retarget_leader: bool = False
 
     @staticmethod
-    def build(mocap_filename: str, vive_filename: str, mocap_metadata: motion_data.MocapMetadata) -> "DataConverter":
+    def build(mocap_filename: str, vive_filename: str, mocap_metadata: motion_data.MocapMetadata,
+              retarget_leader: bool = False) -> "DataConverter":
         """Build a DataConverter."""
 
         # Read in the mat file of the data as a h5py file, which acts the same as a python dict
@@ -30,7 +32,8 @@ class DataConverter:
         # Read the vive data into a dict
         vive_data = scipy.io.loadmat(vive_filename)
 
-        return DataConverter(mocap_data=mocap_data, vive_data=vive_data, mocap_metadata=mocap_metadata)
+        return DataConverter(mocap_data=mocap_data, vive_data=vive_data, mocap_metadata=mocap_metadata,
+                             retarget_leader=retarget_leader)
 
     def clean_mocap_data(self):
         """Clean the mocap data from irrelevant information."""
@@ -67,7 +70,10 @@ class DataConverter:
 
         node_struct = {}
 
-        task_name_dict = {'PELVIS_TASK': 'vive_tracker_waist_pose', 'LEFT_HAND_TASK': 'vive_tracker_left_elbow_pose', 'RIGHT_HAND_TASK': 'vive_tracker_right_elbow_pose'} #TODO this depends on who was the follower
+        if self.retarget_leader:
+            task_name_dict = {'PELVIS_TASK': 'vive_tracker_waist_pose2', 'LEFT_HAND_TASK': 'vive_tracker_left_elbow_pose2', 'RIGHT_HAND_TASK': 'vive_tracker_right_elbow_pose2', 'HEAD_TASK': 'openxr_head2'}
+        else:
+            task_name_dict = {'PELVIS_TASK': 'vive_tracker_waist_pose', 'LEFT_HAND_TASK': 'vive_tracker_left_elbow_pose', 'RIGHT_HAND_TASK': 'vive_tracker_right_elbow_pose', 'HEAD_TASK': 'openxr_head'} #TODO this depends on who was the follower
 
         for key, item in self.mocap_metadata.metadata.items():
 
@@ -97,15 +103,47 @@ class DataConverter:
                 # Rotate orientations into the world frame, correctly this time
                 quaternions = self.vive_data[task_name_dict[key]]['orientations'][0][0]
 
-                # Define the transformation matrix of raw data
-                openxr_origin_H_waist_trackers = [np.vstack((np.hstack((Rotation.from_quat(quat).as_matrix(), pos.reshape(3, 1))), [0, 0, 0, 1])) for pos, quat in zip(positions, quaternions)]
+                if key == 'PELVIS_TASK':
+                    # Define the transformation matrix of raw data
+                    openxr_origin_H_waist_trackers = [np.vstack((np.hstack((Rotation.from_quat(quat).as_matrix(), pos.reshape(3, 1))), [0, 0, 0, 1])) for pos, quat in zip(positions, quaternions)]
 
-                # Apply the transformation to the data
-                I_H_waist_poses = [I_H_openxr_origin @ openxr_origin_H_waist_tracker @ waist_tracker_H_root_link for openxr_origin_H_waist_tracker in openxr_origin_H_waist_trackers]
+                    # Apply the transformation to the data
+                    I_H_root_links = [I_H_openxr_origin @ openxr_origin_H_waist_tracker @ waist_tracker_H_root_link for openxr_origin_H_waist_tracker in openxr_origin_H_waist_trackers]
 
-                # Extract the positions and orientations
-                positions = [pose[:3, 3] for pose in I_H_waist_poses]
-                quaternions = [Rotation.from_matrix(pose[:3, :3]).as_quat() for pose in I_H_waist_poses]
+                    # Extract the positions and orientations
+                    positions = [pose[:3, 3] for pose in I_H_root_links]
+                    quaternions = [Rotation.from_matrix(pose[:3, :3]).as_quat() for pose in I_H_root_links]
+                else:
+                    # Define the transformation matrix of raw data
+                    openxr_origin_H_sensors = [np.vstack((np.hstack((Rotation.from_quat(quat).as_matrix(), pos.reshape(3, 1))), [0, 0, 0, 1])) for pos, quat in zip(positions, quaternions)]
+
+                    I_H_sensors = [I_H_openxr_origin @ openxr_origin_H_sensor for openxr_origin_H_sensor in openxr_origin_H_sensors]
+
+                    # Scale the positions as in teleoperation: https://github.com/robotology/human-dynamics-estimation/blob/82b84f4cb28bc37cdff6cb3250d145b5d29d68cf/conf/xml/RobotStateProvider_ergoCub_openxr_ifeel.xml
+                    # Only scale the follower, not the leader
+                    if not self.retarget_leader:
+
+                        # Transform into base frame
+                        # start with openxr_origin_H_sensors, to get those in world frame do I_H_openxr_origin @ openxr_origin_H_sensors, then put in base frame with root_link_H_I @ I_H_openxr_origin @ openxr_origin_H_sensors = root_link_H_sensors
+                        root_link_H_sensors = [I_H_root_link.T @ I_H_openxr_origin @ openxr_origin_H_sensor for openxr_origin_H_sensor, I_H_root_link in zip(openxr_origin_H_sensors, I_H_root_links)]
+
+                        if key == 'HEAD_TASK':
+                            scaling_factor = [0.7, 0.7, 0.6]
+                        else:
+                            # Scale only x and y for hands such that the height is the same as the human for carrying
+                            scaling_factor = [0.7, 0.7, 1.0]
+                        root_link_p_sensors_scaled = [[scaling_factor[0] * root_link_H_sensor[0, 3],
+                                                       scaling_factor[1] * root_link_H_sensor[1, 3],
+                                                       scaling_factor[2] * root_link_H_sensor[2, 3]]
+                                                       for root_link_H_sensor in root_link_H_sensors]
+
+                        # Put the new poses back into the world frame
+                        root_link_H_sensor_scaleds = [np.vstack((np.hstack((root_link_H_sensor[:3, :3], np.array(root_link_p_sensor).reshape(3, 1))), [0, 0, 0, 1])) for root_link_H_sensor, root_link_p_sensor in zip(root_link_H_sensors, root_link_p_sensors_scaled)]
+                        I_H_sensors = [I_H_root_link @ root_link_H_sensor_scaled for root_link_H_sensor_scaled, I_H_root_link in zip(root_link_H_sensor_scaleds, I_H_root_links)]
+
+                    # Extract the positions and orientations
+                    positions = [pose[:3, 3] for pose in I_H_sensors]
+                    quaternions = [Rotation.from_matrix(pose[:3, :3]).as_quat() for pose in I_H_sensors]
 
                 # Normalize the quaternions
                 quaternions = [utils.normalize_quaternion(quat) for quat in quaternions]
@@ -115,7 +153,7 @@ class DataConverter:
 
                 # Save the first base pose
                 if key == 'PELVIS_TASK':
-                    initial_base_pose = I_H_waist_poses[0]
+                    initial_base_pose = I_H_root_links[0]
                     np.put(initial_base_pose, 11, 0.0)
                     motiondata.initial_base_pose = initial_base_pose
 

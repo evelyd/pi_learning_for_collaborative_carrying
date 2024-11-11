@@ -151,6 +151,7 @@ class WBGR:
     IMU_link_rotations = {}
     initial_base_height: float
     humanIK: baf.ik.HumanIK
+    retarget_leader: bool = False
 
     @staticmethod
     def build(motiondata: motion_data.MotionData,
@@ -159,10 +160,12 @@ class WBGR:
               joint_names: List,
               kindyn: idyn.KinDynComputations,
               mirroring: bool = False,
-              initial_base_height: float = 0.0) -> "WBGR":
+              initial_base_height: float = 0.0,
+              retarget_leader: bool = False) -> "WBGR":
         """Build an instance of WBGR."""
 
-        return WBGR(motiondata=motiondata, metadata=metadata, joint_names=joint_names, kindyn=kindyn, initial_base_height=initial_base_height, humanIK=humanIK)
+        return WBGR(motiondata=motiondata, metadata=metadata, joint_names=joint_names, kindyn=kindyn, initial_base_height=initial_base_height, humanIK=humanIK,
+                    retarget_leader=retarget_leader)
 
     def retarget(self) -> (List, List):
         """Apply Whole-Body Geometric Retargeting (WBGR)."""
@@ -170,8 +173,13 @@ class WBGR:
         timestamps = []
         ik_solutions = []
 
+        if self.retarget_leader:
+            foot_ref_frame = "RightToe"
+        else:
+            foot_ref_frame = "r_foot_front"
+
         # Get the height of the front foot frame off the ground
-        foot_height = utils.idyn_transform_to_np(self.kindyn.getWorldTransform("r_foot_front"))[2,3]
+        foot_height = utils.idyn_transform_to_np(self.kindyn.getWorldTransform(foot_ref_frame))[2,3]
 
         # ====================================================
         # Calibrate using humanIK
@@ -179,7 +187,7 @@ class WBGR:
 
         self.humanIK.clearCalibrationMatrices()
         self.humanIK.calibrateWorldYaw(self.motiondata.CalibrationData)
-        self.humanIK.calibrateAllWithWorld(self.motiondata.CalibrationData, "r_foot_front")
+        self.humanIK.calibrateAllWithWorld(self.motiondata.CalibrationData, foot_ref_frame)
 
         # Keep track of the frames jumped due to IK failure
         jumped_frames = 0

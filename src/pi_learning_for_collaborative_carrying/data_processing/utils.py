@@ -38,7 +38,8 @@ def define_initial_base_height(robot: str) -> List:
 
     if robot == "ergoCubV1":
         initial_base_height = 0.7754
-
+    elif robot == "humanSubjectWithMesh":
+        initial_base_height = 0.95
     else:
         raise Exception("Initial base height only defined for ergoCubV1.")
 

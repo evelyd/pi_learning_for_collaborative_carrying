@@ -24,12 +24,14 @@ parser = argparse.ArgumentParser()
 
 parser.add_argument("--data_location", help="Mocap file to be retargeted. Relative path from script folder.",
                     type=str, default="../datasets/collaborative_payload_carrying/ifeel_and_vive/oct25_2024/forward_backward")
+parser.add_argument("--leader", help="Retarget the leader data.", action="store_true")
 parser.add_argument("--save", help="Store the retargeted motion in json format.", action="store_true")
 parser.add_argument("--deactivate_visualization", help="Do not visualize the retargeted motion.", action="store_true")
 
 args = parser.parse_args()
 
 data_location = args.data_location
+retarget_leader = args.leader
 store_as_json = args.save
 visualize_retargeted_motion = not args.deactivate_visualization
 
@@ -38,7 +40,11 @@ visualize_retargeted_motion = not args.deactivate_visualization
 # ===============
 
 # Retrieve the robot urdf model
-urdf_path = str(resolve_robotics_uri_py.resolve_robotics_uri("package://ergoCub/robots/ergoCubSN001/model.urdf"))
+if retarget_leader:
+    script_directory = os.path.dirname(os.path.abspath(__file__))
+    urdf_path = os.path.join(script_directory, "../human_model/humanSubjectWithMesh.urdf")
+else:
+    urdf_path = str(resolve_robotics_uri_py.resolve_robotics_uri("package://ergoCub/robots/ergoCubSN001/model.urdf"))
 
 # Init jaxsim model for visualization and joint names/positions
 js_model = js.model.JaxSimModel.build_from_model_description(
@@ -62,7 +68,10 @@ assert kindyn.loadRobotModel(model_loader.model())
 
 # Set the parameters from toml file
 qp_ik_params = blf.parameters_handler.TomlParametersHandler()
-toml = pathlib.Path("../src/pi_learning_for_collaborative_carrying/data_processing/qpik.toml").expanduser()
+if retarget_leader:
+    toml = pathlib.Path("../src/pi_learning_for_collaborative_carrying/data_processing/qpik_leader.toml").expanduser()
+else:
+    toml = pathlib.Path("../src/pi_learning_for_collaborative_carrying/data_processing/qpik_follower.toml").expanduser()
 assert toml.is_file()
 ok = qp_ik_params.set_from_file(str(toml))
 
@@ -76,10 +85,13 @@ assert ok
 
 # Original mocap data
 script_directory = os.path.dirname(os.path.abspath(__file__))
-mocap_filename = os.path.join(script_directory, data_location + "/follower/parsed_ifeel_data.mat")
+if retarget_leader:
+    mocap_filename = os.path.join(script_directory, data_location + "/leader/parsed_ifeel_data.mat")
+else:
+    mocap_filename = os.path.join(script_directory, data_location + "/follower/parsed_ifeel_data.mat")
 vive_path = os.path.join(script_directory, data_location + "/vive/interpolated_vive_data.mat")
 
-start_end_ind_dict = {"forward_backward/follower": [2049, 5173], "left_right/follower": [4539, 9193]}
+start_end_ind_dict = {"forward_backward/follower": [2049, 5173], "left_right/follower": [4539, 9193], "forward_backward/leader": [3100, 6224], "left_right/leader": [10275, 14929]}
 # Extract the relevant part of the file name to determine the start time
 file_key = None
 for key in start_end_ind_dict.keys():
@@ -113,7 +125,7 @@ for task_name in qp_ik_params.get_parameter_vector_string("tasks"):
 
 # Instantiate the data converter
 converter = data_converter.DataConverter.build(mocap_filename=mocap_filename, vive_filename=vive_path,
-                                                          mocap_metadata=metadata)
+                                                          mocap_metadata=metadata, retarget_leader=retarget_leader)
 # Convert the mocap data
 motiondata = converter.convert()
 
@@ -124,10 +136,14 @@ motiondata = converter.convert()
 humanIK = baf.ik.HumanIK()
 
 # Set the robot to calibration pose
-kindyn.setJointPos(qp_ik_params.get_parameter_vector_float("calibration_joint_positions"))
+if not retarget_leader:
+    kindyn.setJointPos(qp_ik_params.get_parameter_vector_float("calibration_joint_positions"))
 
 # Define the initial base height
-initial_base_height = utils.define_initial_base_height(robot="ergoCubV1")
+if retarget_leader:
+    initial_base_height = utils.define_initial_base_height(robot="humanSubjectWithMesh")
+else:
+    initial_base_height = utils.define_initial_base_height(robot="ergoCubV1")
 
 # Set the robot to start at the pose of the first base measurement
 initial_transform = idyn.Transform(motiondata.initial_base_pose)
@@ -146,7 +162,8 @@ retargeter = ifeel_data_retargeter.WBGR.build(motiondata=motiondata,
                                                 humanIK=humanIK,
                                                 joint_names=joint_names,
                                                 kindyn=kindyn,
-                                                initial_base_height=initial_base_height)
+                                                initial_base_height=initial_base_height,
+                                                retarget_leader=retarget_leader)
 
 # Retrieve ik solutions
 timestamps, ik_solutions = retargeter.retarget()

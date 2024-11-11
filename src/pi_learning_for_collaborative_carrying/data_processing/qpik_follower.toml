@@ -1,7 +1,8 @@
 tasks = [
     "PELVIS_TASK",
-    # "RIGHT_HAND_TASK",
-    # "LEFT_HAND_TASK",
+    "RIGHT_HAND_TASK",
+    "LEFT_HAND_TASK",
+    "HEAD_TASK",
     "T8_TASK",
     "RIGHT_UPPER_ARM_TASK",
     "RIGHT_FORE_ARM_TASK",
@@ -49,8 +50,9 @@ weight_provider_type = "ConstantWeightProvider"
 frame_name = "r_hand_palm"
 kp_linear = 20.0
 kp_angular = 20.0
-mask = [false, false, true]
-weight = [1.0, 1.0, 1.0, 1.0]
+priority = 1
+mask = [true, true, true]
+weight = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 transformation_matrix = [-1.0, 0.0, 0.0, 0.0,
                         0.0, 0.0, 1.0, -0.02,
                         0.0, 1.0, 0.0, 0.05,
@@ -63,12 +65,28 @@ weight_provider_type = "ConstantWeightProvider"
 frame_name = "l_hand_palm"
 kp_linear = 20.0
 kp_angular = 20.0
-mask = [false, false, true]
-weight = [1.0, 1.0, 1.0, 1.0]
+priority = 1
+mask = [true, true, true]
+weight = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 transformation_matrix = [1.0, 0.0, 0.0, 0.0,
                         0.0, 0.0, 1.0, -0.02,
                         0.0, -1.0, 0.0, 0.05,
                         0.0, 0.0, 0.0, 1.0]
+
+[HEAD_TASK]
+type = "SE3Task"
+robot_velocity_variable_name = "robot_velocity"
+weight_provider_type = "ConstantWeightProvider"
+frame_name = "head"
+kp_linear = 20.0
+kp_angular = 20.0
+priority = 1
+mask = [true, true, true]
+weight = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+transformation_matrix = [0.0, -1.0,  0.0,  0.0,
+                        0.0,  0.0,  1.0,  0.0,
+                        -1.0,  0.0,  0.0,  0.1,
+                        0.0,  0.0,  0.0,  1.0]
 
 [T8_TASK]
 type = "SO3Task"
