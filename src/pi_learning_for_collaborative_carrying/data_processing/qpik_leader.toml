@@ -45,10 +45,10 @@ kp_linear = 20.0
 kp_angular = 20.0
 priority = 1
 mask = [true, true, true]
-weight = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+weight = [10.0, 10.0, 10.0, 10.0, 10.0, 10.0]
 transformation_matrix = [-1.0, 0.0, 0.0, 0.0,
-                        0.0, 0.0, 1.0, -0.02,
-                        0.0, 1.0, 0.0, 0.05,
+                        0.0, 1.0, 0.0, 0.0,
+                        0.0, 0.0, -1.0, 0.0,
                         0.0, 0.0, 0.0, 1.0]
 
 [LEFT_HAND_TASK]
@@ -60,10 +60,10 @@ kp_linear = 20.0
 kp_angular = 20.0
 priority = 1
 mask = [true, true, true]
-weight = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+weight = [10.0, 10.0, 10.0, 10.0, 10.0, 10.0]
 transformation_matrix = [1.0, 0.0, 0.0, 0.0,
-                        0.0, 0.0, 1.0, -0.02,
-                        0.0, -1.0, 0.0, 0.05,
+                        0.0, -1.0, 0.0, 0.0,
+                        0.0, 0.0, -1.0, 0.0,
                         0.0, 0.0, 0.0, 1.0]
 
 [HEAD_TASK]
@@ -78,65 +78,65 @@ mask = [true, true, true]
 weight = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 transformation_matrix = [0.0, -1.0,  0.0,  0.0,
                         0.0,  0.0,  1.0,  0.0,
-                        -1.0,  0.0,  0.0,  0.1,
+                        -1.0,  0.0,  0.0,  0.0,
                         0.0,  0.0,  0.0,  1.0]
 
 [T8_TASK]
-type = "SO3Task"
+type = "GravityTask"
 robot_velocity_variable_name = "robot_velocity"
 weight_provider_type = "ConstantWeightProvider"
-frame_name = "UpperTrunk"
-kp_angular = 20.0
+target_frame_name = "UpperTrunk"
+kp = 20.0
 node_number = 6
-weight = [1.0, 1.0, 1.0]
+weight = [1.0, 1.0]
 rotation_matrix = [0.0, 1.0, 0.0,
                    0.0, 0.0, 1.0,
                    1.0, 0.0, 0.0]
 
 [RIGHT_UPPER_ARM_TASK]
-type = "SO3Task"
+type = "GravityTask"
 robot_velocity_variable_name = "robot_velocity"
 weight_provider_type = "ConstantWeightProvider"
-frame_name = "RightUpperArm"
-kp_angular = 20.0
+target_frame_name = "RightUpperArm"
+kp = 20.0
 node_number = 7
-weight = [1.0, 1.0, 1.0]
+weight = [1.0, 1.0]
 rotation_matrix = [1.0, 0.0, 0.0,
                    0.0, 0.0, 1.0,
                    0.0, -1.0, 0.0]
 
 [RIGHT_FORE_ARM_TASK]
-type = "SO3Task"
+type = "GravityTask"
 robot_velocity_variable_name = "robot_velocity"
 weight_provider_type = "ConstantWeightProvider"
-frame_name = "RightForeArm"
-kp_angular = 20.0
+target_frame_name = "RightForeArm"
+kp = 20.0
 node_number = 8
-weight = [1.0, 1.0, 1.0]
+weight = [1.0, 1.0]
 rotation_matrix = [1.0, 0.0, 0.0,
                    0.0, 0.0, 1.0,
                    0.0, -1.0, 0.0]
 
 [LEFT_UPPER_ARM_TASK]
-type = "SO3Task"
+type = "GravityTask"
 robot_velocity_variable_name = "robot_velocity"
 weight_provider_type = "ConstantWeightProvider"
-frame_name = "LeftUpperArm"
-kp_angular = 20.0
+target_frame_name = "LeftUpperArm"
+kp = 20.0
 node_number = 5
-weight = [1.0, 1.0, 1.0]
+weight = [1.0, 1.0]
 rotation_matrix = [1.0, 0.0, 0.0,
                    0.0, 0.0, -1.0,
                    0.0, 1.0, 0.0]
 
 [LEFT_FORE_ARM_TASK]
-type = "SO3Task"
+type = "GravityTask"
 robot_velocity_variable_name = "robot_velocity"
 weight_provider_type = "ConstantWeightProvider"
-frame_name = "LeftForeArm"
-kp_angular = 20.0
+target_frame_name = "LeftForeArm"
+kp = 20.0
 node_number = 4
-weight = [1.0, 1.0, 1.0]
+weight = [1.0, 1.0]
 rotation_matrix = [1.0, 0.0, 0.0,
                    0.0, 0.0, -1.0,
                    0.0, 1.0, 0.0]
@@ -243,9 +243,9 @@ robot_velocity_variable_name = "robot_velocity"
 use_model_limits = false
 sampling_time = 0.017
 k_limits = 1.0
-joints_list = ["jLeftKnee_rotz", "jRightKnee_rotz", "jLeftAnkle_rotz", "jRightAnkle_rotz", "jC7RightShoulder_rotx", "jC7LeftShoulder_rotx", "jT9T8_rotz", "jL5S1_roty", "jL5S1_rotx"]
-upper_bounds = [0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001]
-lower_bounds = [-0.001, -0.001, -0.001, -0.001, -0.001, -0.001, 0.001, -0.001, 0.001]
+joints_list = ["jLeftKnee_rotz", "jRightKnee_rotz", "jLeftAnkle_rotz", "jRightAnkle_rotz", "jC7RightShoulder_rotx", "jC7LeftShoulder_rotx", "jT9T8_rotx", "jT9T8_rotz", "jL5S1_roty", "jL5S1_rotx", "jLeftHip_rotx", "jRightHip_rotx", "jLeftAnkle_roty", "jRightAnkle_roty", "jLeftShoulder_rotx", "jRightShoulder_rotx"]
+upper_bounds = [0.001, 0.001, 0.001, 0.001, 0.0872665, 0.25, 0.001, 0.001, 0.001, 0.001, 0.785398, 0.0, 0.0, 0.0, 2.35619, 0.5]
+lower_bounds = [-0.001, -0.001, -0.001, -0.001, -0.25, -0.0872665, -0.001, -0.001, -0.001, -0.001, 0.0, -0.785398, -0.523599, -0.523599, -0.5, -2.35619]
 
 [JOINT_REG_TASK]
 type = "JointRegularizationTask"

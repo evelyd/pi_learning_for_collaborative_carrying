@@ -173,12 +173,12 @@ class WBGR:
         timestamps = []
         ik_solutions = []
 
+        # Get the height of the front foot frame off the ground
         if self.retarget_leader:
             foot_ref_frame = "RightToe"
         else:
             foot_ref_frame = "r_foot_front"
 
-        # Get the height of the front foot frame off the ground
         foot_height = utils.idyn_transform_to_np(self.kindyn.getWorldTransform(foot_ref_frame))[2,3]
 
         # ====================================================

@@ -71,9 +71,9 @@ class DataConverter:
         node_struct = {}
 
         if self.retarget_leader:
-            task_name_dict = {'PELVIS_TASK': 'vive_tracker_waist_pose2', 'LEFT_HAND_TASK': 'vive_tracker_left_elbow_pose2', 'RIGHT_HAND_TASK': 'vive_tracker_right_elbow_pose2', 'HEAD_TASK': 'openxr_head2'}
+            task_name_dict = {'PELVIS_TASK': 'vive_tracker_waist_pose2', 'LEFT_HAND_TASK': 'vive_tracker_right_elbow_pose2', 'RIGHT_HAND_TASK': 'vive_tracker_left_elbow_pose2', 'HEAD_TASK': 'openxr_head2'}
         else:
-            task_name_dict = {'PELVIS_TASK': 'vive_tracker_waist_pose', 'LEFT_HAND_TASK': 'vive_tracker_left_elbow_pose', 'RIGHT_HAND_TASK': 'vive_tracker_right_elbow_pose', 'HEAD_TASK': 'openxr_head'} #TODO this depends on who was the follower
+            task_name_dict = {'PELVIS_TASK': 'vive_tracker_waist_pose', 'LEFT_HAND_TASK': 'vive_tracker_right_elbow_pose', 'RIGHT_HAND_TASK': 'vive_tracker_left_elbow_pose', 'HEAD_TASK': 'openxr_head'} #TODO this depends on who was the follower
 
         for key, item in self.mocap_metadata.metadata.items():
 
