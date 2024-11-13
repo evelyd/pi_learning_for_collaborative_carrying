@@ -227,7 +227,7 @@ class WBGR:
 
                 elif task_type == 'SO3Task':
                     # Get the orientation data in manif SO3 format, assuming it comes from wxyz form
-                    I_R_IMU_manif = manif.SO3(quaternion=utils.to_xyzw(I_quat_IMU))
+                    I_R_IMU_manif = manif.SO3(quaternion=I_quat_IMU)
 
                     # Get the angular velocity data in manif SO3Tangent format
                     I_omega_IMU = np.array(task['angular_velocities'][i])
@@ -237,7 +237,7 @@ class WBGR:
 
                 else: # for GravityTask
                     # Get the orientation data in manif SO3 format, assuming it comes from wxyz form
-                    I_R_IMU_manif = manif.SO3(quaternion=utils.to_xyzw(I_quat_IMU))
+                    I_R_IMU_manif = manif.SO3(quaternion=I_quat_IMU)
 
                     assert self.humanIK.updateGravityTask(node_number, I_R_IMU_manif)
 

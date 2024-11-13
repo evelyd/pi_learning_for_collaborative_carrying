@@ -174,7 +174,12 @@ timestamps, ik_solutions = retargeter.retarget()
 
 if store_as_json:
 
-    outfile_name = os.path.join(script_directory, data_location + "retargeted_motion_" + os.path.splitext(os.path.basename(mocap_filename))[0] + ".txt")
+    if retarget_leader:
+        participant = "leader"
+    else:
+        participant = "follower"
+
+    outfile_name = os.path.join(script_directory, data_location + "/retargeted_motion_" + participant + ".txt")
 
     input("Press Enter to store the retargeted mocap into a json file")
     utils.store_retargeted_mocap_as_json(timestamps=timestamps, ik_solutions=ik_solutions, outfile_name=outfile_name)

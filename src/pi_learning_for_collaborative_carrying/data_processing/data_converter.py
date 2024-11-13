@@ -159,19 +159,16 @@ class DataConverter:
 
             # Store orientation task data
             elif item_type == "SO3Task":
-                # Assumes wxyz format
-                quaternions = [utils.normalize_quaternion(quat) for quat in mocap_data_cleaned['node' + str(item['node_number'])]['orient']]
-                # Rotate into the vive world frame
-                angular_velocities = mocap_data_cleaned['node' + str(item['node_number'])]['gyro']
+                # Assumes wxyz format for raw data
+                quaternions = [utils.normalize_quaternion(utils.to_xyzw(quat)) for quat in mocap_data_cleaned['node' + str(item['node_number'])]['orient']]
 
-                # Normalize the quaternions
-                quaternions = [utils.normalize_quaternion(quat) for quat in quaternions]
+                angular_velocities = mocap_data_cleaned['node' + str(item['node_number'])]['gyro']
 
                 task = motion_data.SO3Task(name=key, orientations=quaternions, angular_velocities=angular_velocities)
                 motiondata.SO3Tasks.append(asdict(task))
 
                 # Update node struct for calibration
-                I_R_IMU_calib = manif.SO3(quaternion=utils.normalize_quaternion(utils.to_xyzw(np.array(quaternions[0]))))
+                I_R_IMU_calib = manif.SO3(quaternion=np.array(quaternions[0]))
                 I_omega_IMU_calib = manif.SO3Tangent(angular_velocities[0])
 
                 nodeData = baf.ik.nodeData()
@@ -182,14 +179,14 @@ class DataConverter:
             # Store gravity task data
             elif item_type == "GravityTask":
 
-                # Assumes wxyz format
-                quaternions = [utils.normalize_quaternion(quat) for quat in mocap_data_cleaned['node' + str(item['node_number'])]['orient']]
+                # Assumes wxyz format for raw data
+                quaternions = [utils.normalize_quaternion(utils.to_xyzw(quat)) for quat in mocap_data_cleaned['node' + str(item['node_number'])]['orient']]
 
                 task = motion_data.GravityTask(name=key, orientations=quaternions)
                 motiondata.GravityTasks.append(asdict(task))
 
                 # Update node struct for calibration
-                I_R_IMU_calib = manif.SO3(quaternion=utils.normalize_quaternion(utils.to_xyzw(np.array(quaternions[0]))))
+                I_R_IMU_calib = manif.SO3(quaternion=np.array(quaternions[0]))
                 I_omega_IMU_calib = manif.SO3Tangent(mocap_data_cleaned['node' + str(item['node_number'])]['gyro'][0])
 
                 nodeData = baf.ik.nodeData()
