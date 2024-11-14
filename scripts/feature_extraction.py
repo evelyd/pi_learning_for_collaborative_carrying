@@ -16,13 +16,13 @@ import numpy as np
 
 parser = argparse.ArgumentParser()
 
-# Our custom dataset is divided in two datasets: D2 and D3
-parser.add_argument("--data_location", help="Dataset folder to extract features from.",
-                    type=str, default="../datasets/collaborative_payload_carrying/leader_backward/")
+parser.add_argument("--data_location", help="Mocap file to be retargeted. Relative path from script folder.",
+                    type=str, default="../datasets/collaborative_payload_carrying/ifeel_and_vive/oct25_2024/forward_backward")
 # Plot configuration
 parser.add_argument("--plot_global_velocities", help="Visualize the raw and smoothed global velocities.",action="store_true")
 parser.add_argument("--plot_human_features", help="Visualize the transformed and smoothed human features.",action="store_true")
 parser.add_argument("--plot_robot_v_human", help="Visualize the robot and human base positions.",action="store_true")
+parser.add_argument("--plot_local_human_features", help="Visualize the local human features.",action="store_true")
 parser.add_argument("--plot_global", help="Visualize the computed global features.",action="store_true")
 parser.add_argument("--plot_local", help="Visualization the computed local features.",action="store_true")
 # Store configuration
@@ -34,16 +34,19 @@ data_location = args.data_location
 plot_global_velocities = args.plot_global_velocities
 plot_human_features = args.plot_human_features
 plot_robot_v_human = args.plot_robot_v_human
+plot_local_human_features = args.plot_local_human_features
 plot_global = args.plot_global
 plot_local = args.plot_local
 store_as_json = args.save
 
 # Get path to retargeted data
 script_directory = os.path.dirname(os.path.abspath(__file__))
-retargeted_mocap_path = os.path.join(script_directory, data_location + "retargeted_motion_follower.txt")
+retargeted_mocap_path = os.path.join(script_directory, data_location + "/retargeted_motion_follower.txt")
+retargeted_leader_path = os.path.join(script_directory, data_location + "/retargeted_motion_leader.txt")
 
 # Load the retargeted mocap data
 timestamps, ik_solutions = utils.load_retargeted_mocap_from_json(input_file_name=retargeted_mocap_path)
+leader_timestamps, leader_ik_solutions = utils.load_retargeted_mocap_from_json(input_file_name=retargeted_leader_path)
 
 # ===============
 # MODEL INSERTION
@@ -73,56 +76,22 @@ controlled_joints_indexes = [joint_names.index(elem) for elem in controlled_join
 # HUMAN DATA EXTRACTION AND TIME ALIGNMENT
 # ========================================
 
-# Align robot and human data in time
-human_mocap_filename = os.path.join(script_directory, data_location + "leader.mat")
-robot_mocap_filename = os.path.join(script_directory, data_location + "follower.mat")
+# Define the start time, cutting the t-pose off
+start_ind_dict = {"forward_backward": 0, "left_right": 0}
 
-# Define the start time, cutting the t-pose off for time alignment
-start_time_dict = {"leader_backward/follower": 5.0, "leader_forward/follower": 8.0, "leader_backward/leader": 16.25, "leader_forward/leader": 33.0}
+#TODO use the start ind dict to cut the t pose off
 
 # Extract the relevant part of the file name to determine the start time
-human_file_key = None
-robot_file_key = None
-for key in start_time_dict.keys():
-    if key in human_mocap_filename:
-        human_file_key = key
-    elif key in robot_mocap_filename:
-        robot_file_key = key
+file_key = None
+for key in start_ind_dict.keys():
+    if key in retargeted_leader_path:
+        file_key = key
 
-human_start_time = start_time_dict[human_file_key]
-robot_start_time = start_time_dict[robot_file_key]
+start_ind = start_ind_dict[file_key]
 
-# Read in the mat file of the data as a h5py file, which acts the same as a python dict
-human_mocap_data = h5py.File(human_mocap_filename, 'r')['robot_logger_device']
-
-# Get the timestamps starting at calibration time
-human_zeroed_timestamps = np.squeeze(human_mocap_data['human_state']['base_position']['timestamps'][:] - human_mocap_data['human_state']['base_position']['timestamps'][0])
-robot_zeroed_timestamps = np.array(timestamps) - timestamps[0]
-
-human_start_time_index = np.argmin(np.abs(human_zeroed_timestamps - human_start_time))
-robot_start_time_index = np.argmin(np.abs(robot_zeroed_timestamps - robot_start_time))
-
-# Get the human state positions and velocities
-human_data = {"timestamps": human_zeroed_timestamps[human_start_time_index:] - human_zeroed_timestamps[human_start_time_index],
-              "base_positions": np.squeeze(human_mocap_data['human_state']['base_position']['data'][human_start_time_index:]),
-              "base_orientations": np.squeeze(human_mocap_data['human_state']['base_orientation']['data'][human_start_time_index:]),
-              "base_linear_velocities": np.squeeze(human_mocap_data['human_state']['base_linear_velocity']['data'][human_start_time_index:]),
-              "base_angular_velocities": np.squeeze(human_mocap_data['human_state']['base_angular_velocity']['data'][human_start_time_index:])}
-
-robot_timestamps = robot_zeroed_timestamps[robot_start_time_index:]
-ik_solutions = ik_solutions[robot_start_time_index:]
-
-# Ensure the time series are the same length
-if len(ik_solutions) > len(human_data["base_positions"]):
-    # If the robot data is longer, cut it to match the human data
-    ik_solutions = ik_solutions[:len(human_data["base_positions"])]
-elif len(human_data["base_positions"]) > len(ik_solutions):
-    # If the human data is longer, cut it to match the robot data
-    human_data["timestamps"] = human_data["timestamps"][:len(ik_solutions)]
-    human_data["base_positions"] = human_data["base_positions"][:len(ik_solutions)]
-    human_data["base_orientations"] = human_data["base_orientations"][:len(ik_solutions)]
-    human_data["base_linear_velocities"] = human_data["base_linear_velocities"][:len(ik_solutions)]
-    human_data["base_angular_velocities"] = human_data["base_angular_velocities"][:len(ik_solutions)]
+# Cut the ik solutions
+leader_ik_solutions = leader_ik_solutions[start_ind:]
+ik_solutions = ik_solutions[start_ind:]
 
 # ===================
 # FEATURE EXTRACTION
@@ -130,11 +99,12 @@ elif len(human_data["base_positions"]) > len(ik_solutions):
 
 # Instantiate the feature extractor
 extractor = feature_extractor.FeatureExtractor.build(ik_solutions=ik_solutions,
-                                                       human_data=human_data,
+                                                       leader_ik_solutions=leader_ik_solutions,
                                                        controlled_joints_indexes=controlled_joints_indexes,
                                                        plot_global_vels=plot_global_velocities,
                                                        plot_human_features=plot_human_features,
-                                                       plot_robot_v_human=plot_robot_v_human)
+                                                       plot_robot_v_human=plot_robot_v_human,
+                                                       plot_local_human_features=plot_local_human_features)
 # Extract the features
 extractor.compute_features()
 
