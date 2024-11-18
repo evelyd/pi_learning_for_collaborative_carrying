@@ -465,7 +465,7 @@ class LocalFrameFeatures:
             I_H_HB = np.vstack((np.hstack((Rotation.from_quat(np.array(current_global_human_base_orientation), scalar_first=True).as_matrix(), current_global_human_base_position.reshape(-1, 1))), np.array([0, 0, 0, 1])))
 
             # Compute the pose of the human base in the robot base frame
-            RB_H_HB = I_H_RB.T @ I_H_HB
+            RB_H_HB = np.linalg.inv(I_H_RB) @ I_H_HB
             current_local_human_base_position = RB_H_HB[:3, 3]
             current_local_human_base_orientation = Rotation.from_matrix(RB_H_HB[:3, :3]).as_quat(scalar_first=True)
 
