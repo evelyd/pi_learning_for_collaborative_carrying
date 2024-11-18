@@ -758,24 +758,7 @@ class FeatureExtractor:
                 self.global_frame_features.base_quaternions[i], scalar_first=True).as_euler('xyz')
             Y_i.extend(current_base_euler_angles)
 
-            # Add current human base position expressed in robot base frame (3 components)
-            current_human_base_position = self.global_frame_features.human_base_positions[i]
-            Y_i.extend(current_human_base_position)
-
-            # Add current human base orientation expressed in robot base frame (3 components)
-            current_human_base_euler_angles = Rotation.from_quat(
-                self.global_frame_features.human_base_quaternions[i], scalar_first=True).as_euler('xyz')
-            Y_i.extend(current_human_base_euler_angles)
-
-            # Add current human base linear velocity expressed in robot base frame (3 components)
-            current_human_base_linear_velocity = self.local_frame_features.human_base_linear_velocities[i]
-            Y_i.extend(current_human_base_linear_velocity)
-
-            # Add current human base angular velocity expressed in robot base frame (3 components)
-            current_human_base_angular_velocity = self.local_frame_features.human_base_angular_velocities[i]
-            Y_i.extend(current_human_base_angular_velocity)
-
-            # Store current output vector (112 components)
+            # Store current output vector (100 components)
             Y.append(Y_i)
 
         # Debug

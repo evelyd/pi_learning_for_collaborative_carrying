@@ -77,9 +77,7 @@ controlled_joints_indexes = [joint_names.index(elem) for elem in controlled_join
 # ========================================
 
 # Define the start time, cutting the t-pose off
-start_ind_dict = {"forward_backward": 0, "left_right": 0}
-
-#TODO use the start ind dict to cut the t pose off
+start_ind_dict = {"forward_backward": 290, "left_right": 240}
 
 # Extract the relevant part of the file name to determine the start time
 file_key = None
@@ -118,7 +116,7 @@ X = extractor.compute_X()
 if store_as_json:
 
     # Define the path to store the input X associated to the selected subsection of the dataset
-    input_path = "extracted_features_X.txt"
+    input_path = data_location + "/extracted_features_X.txt"
     input_path = os.path.join(script_directory, input_path)
 
     input("Press Enter to store the computed X")
@@ -136,7 +134,7 @@ Y = extractor.compute_Y()
 if store_as_json:
 
     # Define the path to store the output Y associated to the selected subsection of the dataset
-    output_path = "extracted_features_Y.txt"
+    output_path = data_location + "/extracted_features_Y.txt"
     output_path = os.path.join(script_directory, output_path)
 
     input("Press Enter to store the computed Y")
