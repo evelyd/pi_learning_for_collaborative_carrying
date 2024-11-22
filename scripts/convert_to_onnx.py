@@ -4,6 +4,7 @@ from pathlib import Path
 import argparse
 from pi_learning_for_collaborative_carrying.mann_pytorch.utils import read_from_file
 import numpy as np
+import os
 
 
 def convert_model(model_path: Path, onnx_model_path: Path, normalization_folder: Path, opset_version: int):
@@ -75,25 +76,31 @@ def convert_model(model_path: Path, onnx_model_path: Path, normalization_folder:
 
 def main():
     parser = argparse.ArgumentParser(description='Convert mann-pytorch model into a onnx model.')
-    parser.add_argument('--output', '-o', type=lambda p: Path(p).absolute(), required=True,
-                         help='Onnx model path.')
-    parser.add_argument('--torch_model_path', '-i', type=lambda p: Path(p).absolute(),
-                        default=Path(__file__).absolute().parent.parent /
-                                "models" / "storage_20220909-131438" / "models" / "model_49.pth",
+    parser.add_argument('--torch_training_path', '-i', type=lambda p: Path(p).absolute(),
+                        default="../datasets/trained_models/training_test_collab_20241122-110309/",
                         required=False,
-                        help='Pytorch model location.')
-    parser.add_argument('--normalization_path', '-n', type=lambda p: Path(p).absolute(),
-                        default=Path(__file__).absolute().parent.parent /
-                                "models" / "storage_20220909-131438" / "normalization",
-                        required=False,
-                        help='Folder containing the normalization files.')
+                        help='Pytorch training folder location.')
+    parser.add_argument('--model_epoch', type=int, required=False, default=149,
+                        help='Model epoch to convert.')
     parser.add_argument('--onnx_opset_version', type=int, default=12, required=False,
                         help='The ONNX version to export the model to. At least 12 is required.')
     args = parser.parse_args()
 
-    convert_model(model_path=args.torch_model_path,
-                  onnx_model_path=args.output,
-                  normalization_folder=args.normalization_path,
+    training_path = args.torch_training_path
+    ep = args.model_epoch
+    model_path = training_path / Path("models/model_" + str(ep) + ".pth")
+    normalization_path = training_path / "normalization"
+    onnx_filename = os.path.basename(os.path.normpath(training_path)) + "_ep" + str(ep) + ".onnx"
+    onnx_model_path = training_path / Path(onnx_filename)
+
+    print("Converting model from:", model_path)
+    print("Normalization folder:", normalization_path)
+    print("Saving onnx model to:", onnx_model_path)
+    input("continue")
+
+    convert_model(model_path=model_path,
+                  onnx_model_path=onnx_model_path,
+                  normalization_folder=normalization_path,
                   opset_version=args.onnx_opset_version)
 
 
