@@ -1,6 +1,7 @@
 # Authors: Evelyn D'Elia, Giulio Romualdi, Paolo Maria Viceconte
 from idyntree.visualize import MeshcatVisualizer
 import pi_learning_for_collaborative_carrying.trajectory_generation.URDFVisualizer as vis #import URDFVisualizer as vis
+import pi_learning_for_collaborative_carrying.trajectory_generation.utils as utils
 import idyntree.bindings as idyn
 import numpy as np
 import manifpy as manif
@@ -8,7 +9,7 @@ import bipedal_locomotion_framework as blf
 import resolve_robotics_uri_py
 import argparse
 import os
-from scipy.spatial.transform import Rotation as R
+from scipy.spatial.transform import Rotation
 
 import matplotlib as mpl
 mpl.rcParams['toolbar'] = 'None'
@@ -35,13 +36,13 @@ ml.loadReducedModelFromFile(robot_model_path, params_network.get_parameter_vecto
 # viz.load_model(ml.model())
 
 # Get the path to the human model
-human_urdf_path = os.path.join(script_directory, "../human_model/humanSubject03_48dof.urdf")
+human_urdf_path = str(resolve_robotics_uri_py.resolve_robotics_uri("package://human-gazebo/humanSubjectWithMesh.urdf")) #TODO fixed by putting the urdf and meshes inside the human-gazebo package in the conda env/share folder
 human_ml = idyn.ModelLoader()
 human_ml.loadReducedModelFromFile(human_urdf_path, params_network.get_parameter_vector_string("human_joints_list"))
 
 # prepare visualizer
 viz = vis.DualVisualizer(ml1=ml, ml2=human_ml, model1_name="robot", model2_name="human")
-viz.load_model(model1_color=(0.2 , 0.2, 0.2, 0.9), model2_color=(1.0 , 0.2, 0.2, 0.5))
+viz.load_model()
 viz.idyntree_visualizer.camera().animator().enableMouseControl()
 
 # Create the trajectory generator
@@ -50,9 +51,9 @@ assert mann_trajectory_generator.set_robot_model(ml.model())
 assert mann_trajectory_generator.initialize(params_network)
 
 # Create the input builder
-# TODO here remove input builder, it's not needed if the human base info is given somehow
-# input_builder = blf.ml.VelMANNAutoregressiveInputBuilder()
-# assert input_builder.initialize(params_joypad)
+input_builder = blf.ml.VelMANNAutoregressiveInputBuilder()
+params_human_input = blf.parameters_handler.TomlParametersHandler()
+assert input_builder.initialize(params_human_input)
 
 # Initial joint positions configuration. The serialization is specified in the config file
 # TODO change this? based on new network outputs?
@@ -61,30 +62,37 @@ joint_positions = np.zeros(len(params_network.get_parameter_vector_float("initia
 
 # Initial base pose. This pose makes the robot stand on the ground with the feet flat
 #TODO should this change to be within the possibilities of the network?
-#TODO augment data with robot/human starting from different positions in world frame?
-base_pose = manif.SE3.Identity()
 initial_base_height = params_network.get_parameter_float("initial_base_height")
 quat = params_network.get_parameter_vector_float("initial_base_quaternion")
 quat = quat / np.linalg.norm(quat) # Normalize the quaternion
-base_pose = manif.SE3([0, 0, initial_base_height], quat)
+base_pose = manif.SE3([0, 0, initial_base_height], quat) # not used for update
 
-# TODO set the initial human pose based on the robot pose and the desired distance between them
+# use retargeted data as human inputs
+human_data_path = os.path.join(script_directory, "../datasets/collaborative_payload_carrying/ifeel_and_vive/oct25_2024/forward_backward/retargeted_motion_leader.txt")
+robot_data_path = os.path.join(script_directory, "../datasets/collaborative_payload_carrying/ifeel_and_vive/oct25_2024/forward_backward/retargeted_motion_follower.txt")
+human_data = utils.get_human_base_pose_from_retargeted_data(human_data_path, robot_data_path)
 
-# Create user inputs
-#TODO remove in favor of human base poses which should come from file if testing or somewhere else if deploying
-# - `left_stick_x`: 1.0
-# - `left_stick_y`: 0.0
-# - `right_stick_x`: 1.0
-# - `right_stick_y`: 0.0
-# input_builder_input = blf.ml.VelMANNDirectionalInput()
-# input_builder_input.motion_direction = np.array([1, 0])
-# input_builder_input.base_direction = np.array([1, 0])
+# Extract the relevant part of the file name to determine the start time
+start_end_dict = {"forward_backward": [607, 2670], "left_right": [610, 4060]} # Cut off bending over
+file_key = None
+for key in start_end_dict.keys():
+    if key in human_data_path:
+        file_key = key
 
-#TODO add the human input, for now nothing
+start_ind = start_end_dict[file_key][0]
+end_ind = start_end_dict[file_key][1]
+
+# Get the human base poses and joint positions from the retargeted data (in data robot base frame)
+RB_H_HB = [human_data["base_pose"] for human_data in human_data[start_ind:end_ind]]
+human_base_linear_velocities = [np.array(data["base_linear_velocity"]) for data in human_data[start_ind:end_ind]]
+human_base_angular_velocities = [np.array(data["base_angular_velocity"]) for data in human_data[start_ind:end_ind]]
+s_H = [np.array(data["joint_positions"]) for data in human_data[start_ind:end_ind]]
+
+
+# Initialize user input (human base positions and velocities in robot frame)
+input_builder_input = blf.ml.VelMANNHumanInput()
 
 # Network execution
-#TODO where to open viz?
-# viz.open()
 input("Press a key to start the trajectory generation")
 
 # Reset the trajectory generator
@@ -106,13 +114,18 @@ right_foot_rotations = np.zeros(shape=(3,length_of_time))
 for i in range(length_of_time):
 
     # Set the input to the builder
-    #TODO give input as human base info
-    # input_builder.set_input(input_builder_input)
-    # assert input_builder.advance()
-    # assert input_builder.is_output_valid()
+    input_builder_input.human_base_position = RB_H_HB[i][:3,3]
+    input_builder_input.human_base_angle = Rotation.from_matrix(RB_H_HB[i][:3,:3]).as_euler('xyz')
+    input_builder_input.human_base_linear_velocity = human_base_linear_velocities[i]
+    input_builder_input.human_base_angular_velocity = human_base_angular_velocities[i]
+
+    # Advance the input builder
+    input_builder.set_input(input_builder_input)
+    assert input_builder.advance()
+    assert input_builder.is_output_valid()
 
     # Set the input to the trajectory generator
-    # mann_trajectory_generator.set_input(input_builder.get_output())
+    mann_trajectory_generator.set_input(input_builder.get_output())
     #TODO here will have to fix it based on the new inputs
     assert mann_trajectory_generator.advance()
     assert mann_trajectory_generator.is_output_valid()
@@ -120,30 +133,23 @@ for i in range(length_of_time):
     # Get the output of the trajectory generator and update the visualization
     mann_output = mann_trajectory_generator.get_output()
     base_translations[:,i] = np.array(mann_output.base_pose.translation())
-    base_rotations[:,i] = R.from_matrix(mann_output.base_pose.rotation()).as_euler('xyz')
+    base_rotations[:,i] = Rotation.from_matrix(mann_output.base_pose.rotation()).as_euler('xyz')
     foot_contacts[:,i] = np.array([mann_output.left_foot.is_active, mann_output.right_foot.is_active])
     left_foot_velocities[:,i] = np.array(mann_output.left_foot_velocity)
     right_foot_velocities[:,i] = np.array(mann_output.right_foot_velocity)
     left_foot_positions[:,i] = np.array(mann_output.left_foot_pose.translation())
     right_foot_positions[:,i] = np.array(mann_output.right_foot_pose.translation())
-    left_foot_rotations[:,i] = R.from_matrix(mann_output.left_foot_pose.rotation()).as_euler('xyz')
-    right_foot_rotations[:,i] = R.from_matrix(mann_output.right_foot_pose.rotation()).as_euler('xyz')
-
-    # viz.set_multibody_system_state(mann_output.base_pose.translation(),
-    #                                mann_output.base_pose.rotation(),
-    #                                mann_output.joint_positions)
+    left_foot_rotations[:,i] = Rotation.from_matrix(mann_output.left_foot_pose.rotation()).as_euler('xyz')
+    right_foot_rotations[:,i] = Rotation.from_matrix(mann_output.right_foot_pose.rotation()).as_euler('xyz')
 
     robot_joint_state = np.array(mann_output.joint_positions)
-    print("mann_output.joint_positions: ", mann_output.joint_positions)
-    print("robot_joint_state: ", robot_joint_state)
-    robot_base_pose = np.vstack((np.hstack((mann_output.base_pose.rotation(), mann_output.base_pose.translation().reshape(3, 1))), [0, 0, 0, 1]))
-    human_joint_state = np.zeros(human_ml.model().getNrOfJoints()) #TODO correct?
-    human_base_translation = np.array([1.2, 0, 0.8])
-    from scipy.spatial.transform import Rotation
-    human_base_rotation = Rotation.from_euler('z', 180, degrees=True).as_matrix()
-    human_base_pose = np.vstack((np.hstack((human_base_rotation, human_base_translation.reshape(3, 1))), [0, 0, 0, 1]))
+    robot_base_pose = np.vstack((np.hstack((mann_output.base_pose.rotation(), mann_output.base_pose.translation().reshape(3, 1))), [0, 0, 0, 1])) # This is in the world frame
+    human_joint_state = s_H[i]
+    human_base_pose = robot_base_pose @ RB_H_HB[i] #TODO this is in the frame of the data robot base, need to convert to world frame
+    print("robot base height: ", robot_base_pose[2,3])
+    print("human base height in RB: ", RB_H_HB[i][2,3])
+    print("human base height in world: ", human_base_pose[2,3])
 
-    #TODO update with correct human info
     viz.update_model(robot_joint_state, human_joint_state, robot_base_pose, human_base_pose)
     viz.run()
 
