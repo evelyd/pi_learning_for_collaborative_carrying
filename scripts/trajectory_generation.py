@@ -32,9 +32,6 @@ robot_model_path = str(resolve_robotics_uri_py.resolve_robotics_uri("package://e
 ml = idyn.ModelLoader()
 ml.loadReducedModelFromFile(robot_model_path, params_network.get_parameter_vector_string("joints_list"))
 
-# viz = MeshcatVisualizer()
-# viz.load_model(ml.model())
-
 # Get the path to the human model
 human_urdf_path = str(resolve_robotics_uri_py.resolve_robotics_uri("package://human-gazebo/humanSubjectWithMesh.urdf")) #TODO fixed by putting the urdf and meshes inside the human-gazebo package in the conda env/share folder
 human_ml = idyn.ModelLoader()
@@ -43,7 +40,6 @@ human_ml.loadReducedModelFromFile(human_urdf_path, params_network.get_parameter_
 # prepare visualizer
 viz = vis.DualVisualizer(ml1=ml, ml2=human_ml, model1_name="robot", model2_name="human")
 viz.load_model()
-viz.idyntree_visualizer.camera().animator().enableMouseControl()
 
 # Create the trajectory generator
 mann_trajectory_generator = blf.ml.VelMANNAutoregressive()
@@ -150,8 +146,7 @@ for i in range(length_of_time):
     print("human base height in RB: ", RB_H_HB[i][2,3])
     print("human base height in world: ", human_base_pose[2,3])
 
-    viz.update_model(robot_joint_state, human_joint_state, robot_base_pose, human_base_pose)
-    viz.run()
+    viz.update_models(robot_joint_state, human_joint_state, robot_base_pose, human_base_pose)
 
 # get the mse of the foot vels only when that foot is in contact
 left_foot_vel_error = np.zeros(shape=(length_of_time,1))
