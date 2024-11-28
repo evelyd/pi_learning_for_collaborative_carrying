@@ -61,7 +61,15 @@ def get_human_base_pose_from_retargeted_data(human_file_path: str, robot_file_pa
 
     # For each timestep, rotate the world human base pose into the robot base frame
     RB_human_data_HB = []
-    for human_data, robot_data in zip(human_data, robot_data):
+
+    #Create the homogeneous robot transformation matrix
+    robot_base_position = robot_data[0]["base_position"]
+    robot_base_quaternion = robot_data[0]["base_quaternion"]
+    robot_base_rotation_matrix = Rotation.from_quat(robot_base_quaternion, scalar_first=True).as_matrix()
+    I_H_RB_initial = np.eye(4)
+    I_H_RB_initial[:3, :3] = robot_base_rotation_matrix
+    I_H_RB_initial[:3, 3] = np.array(robot_base_position)
+    for human_data in human_data:
         human_base_position = human_data["base_position"]
         human_base_quaternion = human_data["base_quaternion"]
         human_base_linear_velocity = human_data["base_linear_velocity"]
@@ -72,27 +80,24 @@ def get_human_base_pose_from_retargeted_data(human_file_path: str, robot_file_pa
         human_base_rotation_matrix = Rotation.from_quat(human_base_quaternion, scalar_first=True).as_matrix()
 
         # Create the homogeneous human transformation matrix
-        I_H_HB = np.eye(4)
-        I_H_HB[:3, :3] = human_base_rotation_matrix
-        I_H_HB[:3, 3] = np.array(human_base_position)
+        Idata_H_HB = np.eye(4)
+        Idata_H_HB[:3, :3] = human_base_rotation_matrix
+        Idata_H_HB[:3, 3] = np.array(human_base_position)
 
-        #Create the homogeneous robot transformation matrix
-        robot_base_position = robot_data["base_position"]
-        robot_base_quaternion = robot_data["base_quaternion"]
-        robot_base_rotation_matrix = Rotation.from_quat(robot_base_quaternion, scalar_first=True).as_matrix()
-        I_H_RB = np.eye(4)
-        I_H_RB[:3, :3] = robot_base_rotation_matrix
-        I_H_RB[:3, 3] = np.array(robot_base_position)
-
-        # For each timestep, rotate the world human base pose into the robot base frame
-        RB_H_HB = np.linalg.inv(I_H_RB) @ I_H_HB
+        # For each timestep, rotate the world human base pose into the initial robot base frame (but don't translate off the ground), so basically only rotate/translate in the xy plane
+        I_R_RB_initial_xy_angles = Rotation.from_matrix(I_H_RB_initial[:3, :3]).as_euler('xyz')
+        I_R_RB_initial_z = Rotation.from_euler('z', I_R_RB_initial_xy_angles[2]).as_matrix()
+        I_H_RB_initial_xy = np.eye(4)
+        I_H_RB_initial_xy[:3, :3] = I_R_RB_initial_z # set rotation to be only the z rotation
+        I_H_RB_initial_xy[:3, 3] = np.array([I_H_RB_initial[0,3], I_H_RB_initial[1,3], 0])
+        Iinference_H_HB = np.linalg.inv(I_H_RB_initial_xy) @ Idata_H_HB
 
         # Rotate the velocities into the robot base frame
         RB_human_base_linear_velocity = np.linalg.inv(robot_base_rotation_matrix).dot(human_base_linear_velocity)
         RB_human_base_angular_velocity = np.linalg.inv(robot_base_rotation_matrix).dot(human_base_angular_velocity)
 
         # Store the data in the new format
-        RB_human_data_HB.append({"base_pose": RB_H_HB,
+        RB_human_data_HB.append({"base_pose": Iinference_H_HB,
                                  "base_linear_velocity": RB_human_base_linear_velocity,
                                  "base_angular_velocity": RB_human_base_angular_velocity,
                                  "joint_positions": human_joint_positions})

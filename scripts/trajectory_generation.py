@@ -1,6 +1,6 @@
 # Authors: Evelyn D'Elia, Giulio Romualdi, Paolo Maria Viceconte
 from idyntree.visualize import MeshcatVisualizer
-import pi_learning_for_collaborative_carrying.trajectory_generation.URDFVisualizer as vis #import URDFVisualizer as vis
+import pi_learning_for_collaborative_carrying.trajectory_generation.DualVisualizer as vis
 import pi_learning_for_collaborative_carrying.trajectory_generation.utils as utils
 import idyntree.bindings as idyn
 import numpy as np
@@ -46,14 +46,14 @@ mann_trajectory_generator = blf.ml.VelMANNAutoregressive()
 assert mann_trajectory_generator.set_robot_model(ml.model())
 assert mann_trajectory_generator.initialize(params_network)
 
-# Create the input builder
+# Create the input builder (currently empty)
 input_builder = blf.ml.VelMANNAutoregressiveInputBuilder()
 params_human_input = blf.parameters_handler.TomlParametersHandler()
 assert input_builder.initialize(params_human_input)
 
 # Initial joint positions configuration. The serialization is specified in the config file
 # TODO change this? based on new network outputs?
-# joint_positions = params_network.get_parameter_vector_float("initial_joints_configuration")
+# joint_positions = params_network.get_parameter_vector_float("initial_joints_configuration") #causes flipping around
 joint_positions = np.zeros(len(params_network.get_parameter_vector_float("initial_joints_configuration")))
 
 # Initial base pose. This pose makes the robot stand on the ground with the feet flat
@@ -79,7 +79,7 @@ start_ind = start_end_dict[file_key][0]
 end_ind = start_end_dict[file_key][1]
 
 # Get the human base poses and joint positions from the retargeted data (in data robot base frame)
-RB_H_HB = [human_data["base_pose"] for human_data in human_data[start_ind:end_ind]]
+I_H_HB = [human_data["base_pose"] for human_data in human_data[start_ind:end_ind]]
 human_base_linear_velocities = [np.array(data["base_linear_velocity"]) for data in human_data[start_ind:end_ind]]
 human_base_angular_velocities = [np.array(data["base_angular_velocity"]) for data in human_data[start_ind:end_ind]]
 s_H = [np.array(data["joint_positions"]) for data in human_data[start_ind:end_ind]]
@@ -110,10 +110,18 @@ right_foot_rotations = np.zeros(shape=(3,length_of_time))
 for i in range(length_of_time):
 
     # Set the input to the builder
-    input_builder_input.human_base_position = RB_H_HB[i][:3,3]
-    input_builder_input.human_base_angle = Rotation.from_matrix(RB_H_HB[i][:3,:3]).as_euler('xyz')
+    input_builder_input.human_base_position = I_H_HB[i][:3,3]
+    input_builder_input.human_base_angle = Rotation.from_matrix(I_H_HB[i][:3,:3]).as_euler('xyz')
     input_builder_input.human_base_linear_velocity = human_base_linear_velocities[i]
     input_builder_input.human_base_angular_velocity = human_base_angular_velocities[i]
+
+    if i == 0:
+        print(f"Human base position: {input_builder_input.human_base_position}")
+        print(f"Human base angle: {input_builder_input.human_base_angle}")
+        print(f"Human base linear velocity: {input_builder_input.human_base_linear_velocity}")
+        print(f"Human base angular velocity: {input_builder_input.human_base_angular_velocity}")
+        if i == 0:
+            input("Press a key to continue")
 
     # Advance the input builder
     input_builder.set_input(input_builder_input)
@@ -122,7 +130,6 @@ for i in range(length_of_time):
 
     # Set the input to the trajectory generator
     mann_trajectory_generator.set_input(input_builder.get_output())
-    #TODO here will have to fix it based on the new inputs
     assert mann_trajectory_generator.advance()
     assert mann_trajectory_generator.is_output_valid()
 
@@ -141,10 +148,7 @@ for i in range(length_of_time):
     robot_joint_state = np.array(mann_output.joint_positions)
     robot_base_pose = np.vstack((np.hstack((mann_output.base_pose.rotation(), mann_output.base_pose.translation().reshape(3, 1))), [0, 0, 0, 1])) # This is in the world frame
     human_joint_state = s_H[i]
-    human_base_pose = robot_base_pose @ RB_H_HB[i] #TODO this is in the frame of the data robot base, need to convert to world frame
-    print("robot base height: ", robot_base_pose[2,3])
-    print("human base height in RB: ", RB_H_HB[i][2,3])
-    print("human base height in world: ", human_base_pose[2,3])
+    human_base_pose = I_H_HB[i] # This is in the world frame
 
     viz.update_models(robot_joint_state, human_joint_state, robot_base_pose, human_base_pose)
 
