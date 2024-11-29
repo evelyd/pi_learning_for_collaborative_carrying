@@ -83,20 +83,22 @@ controlled_joints_indexes = [joint_names.index(elem) for elem in controlled_join
 # HUMAN DATA EXTRACTION AND TIME ALIGNMENT
 # ========================================
 
-# Define the start time, cutting the t-pose off
-start_ind_dict = {"forward_backward": 290, "left_right": 240}
+# Define the start and end time
+# start_end_dict = {"forward_backward": [2800, 3250], "left_right": [4200, 4700]} # Cut off T-pose
+start_end_dict = {"forward_backward": [600, 2670], "left_right": [590, 4090]} # Cut off bending over
 
 # Extract the relevant part of the file name to determine the start time
 file_key = None
-for key in start_ind_dict.keys():
+for key in start_end_dict.keys():
     if key in retargeted_leader_path:
         file_key = key
 
-start_ind = start_ind_dict[file_key]
+start_ind = start_end_dict[file_key][0]
+end_ind = start_end_dict[file_key][1]
 
 # Cut the ik solutions
-leader_ik_solutions = leader_ik_solutions[start_ind:]
-ik_solutions = ik_solutions[start_ind:]
+leader_ik_solutions = leader_ik_solutions[start_ind:end_ind]
+ik_solutions = ik_solutions[start_ind:end_ind]
 
 # ===================
 # FEATURE EXTRACTION

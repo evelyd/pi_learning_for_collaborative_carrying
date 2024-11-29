@@ -276,7 +276,7 @@ class GlobalFrameFeatures:
             # Include the human joints for visualization purposes only
             human_joint_positions = np.asarray(human_ik_solution["joint_positions"])
 
-            # Hf the start at origin var is false, then transform both robot and human s.t. robot starts at xy origin (yaw 0)
+            # If the start at origin var is false, then transform both robot and human s.t. robot starts at xy origin (yaw 0)
             if self.start_at_origin:
 
                 # Get the initial robot transform
