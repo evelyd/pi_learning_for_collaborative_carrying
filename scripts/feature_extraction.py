@@ -10,6 +10,9 @@ import jaxsim.api as js
 import resolve_robotics_uri_py
 import h5py
 import numpy as np
+
+import bipedal_locomotion_framework as blf
+import idyntree.bindings as idyn
 # ==================
 # USER CONFIGURATION
 # ==================
@@ -20,11 +23,13 @@ parser.add_argument("--data_location", help="Mocap file to be retargeted. Relati
                     type=str, default="../datasets/collaborative_payload_carrying/ifeel_and_vive/oct25_2024/forward_backward")
 # Plot configuration
 parser.add_argument("--plot_global_velocities", help="Visualize the raw and smoothed global velocities.",action="store_true")
+parser.add_argument("--start_at_origin", help="Start the trajectories with the robot at the xy origin, with yaw 0.",action="store_true")
 parser.add_argument("--plot_human_features", help="Visualize the transformed and smoothed human features.",action="store_true")
 parser.add_argument("--plot_robot_v_human", help="Visualize the robot and human base positions.",action="store_true")
 parser.add_argument("--plot_local_human_features", help="Visualize the local human features.",action="store_true")
 parser.add_argument("--plot_global", help="Visualize the computed global features.",action="store_true")
 parser.add_argument("--plot_local", help="Visualization the computed local features.",action="store_true")
+parser.add_argument("--visualize_meshcat", help="Visualize the robot and human with the Meshcat Visualizer.",action="store_true")
 # Store configuration
 parser.add_argument("--save", help="Store the network input and output vectors in json format.",action="store_true")
 
@@ -32,9 +37,11 @@ args = parser.parse_args()
 
 data_location = args.data_location
 plot_global_velocities = args.plot_global_velocities
+start_at_origin = args.start_at_origin
 plot_human_features = args.plot_human_features
 plot_robot_v_human = args.plot_robot_v_human
 plot_local_human_features = args.plot_local_human_features
+visualize_meshcat = args.visualize_meshcat
 plot_global = args.plot_global
 plot_local = args.plot_local
 store_as_json = args.save
@@ -102,7 +109,8 @@ extractor = feature_extractor.FeatureExtractor.build(ik_solutions=ik_solutions,
                                                        plot_global_vels=plot_global_velocities,
                                                        plot_human_features=plot_human_features,
                                                        plot_robot_v_human=plot_robot_v_human,
-                                                       plot_local_human_features=plot_local_human_features)
+                                                       plot_local_human_features=plot_local_human_features,
+                                                       start_at_origin=start_at_origin)
 # Extract the features
 extractor.compute_features()
 
@@ -171,3 +179,22 @@ if plot_local:
                                    ik_solutions=ik_solutions,
                                    js_model=js_model,
                                    controlled_joints=controlled_joints)
+
+if visualize_meshcat:
+
+    # Get the configuration file
+    config_path = os.path.join(script_directory, "../config/config_mann.toml")
+    params_network = blf.parameters_handler.TomlParametersHandler()
+    params_network.set_from_file(str(config_path))
+
+    # Create the model loader for the robot
+    ml = idyn.ModelLoader()
+    ml.loadReducedModelFromFile(urdf_path, params_network.get_parameter_vector_string("joints_list"))
+
+    # Create the model loader for the robot
+    human_urdf_path = str(resolve_robotics_uri_py.resolve_robotics_uri("package://human-gazebo/humanSubjectWithMesh.urdf")) #TODO fixed by putting the urdf and meshes inside the human-gazebo package in the conda env/share folder
+    human_ml = idyn.ModelLoader()
+    human_ml.loadReducedModelFromFile(human_urdf_path, params_network.get_parameter_vector_string("human_joints_list"))
+
+    utils.visualize_meshcat(global_frame_features=extractor.get_global_frame_features(),
+                      robot_ml=ml, human_ml=human_ml)

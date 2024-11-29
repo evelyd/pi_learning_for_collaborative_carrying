@@ -15,6 +15,8 @@ import mujoco.viewer
 import jaxsim.api as js
 from jaxsim.mujoco import UrdfToMjcf
 
+import pi_learning_for_collaborative_carrying.trajectory_generation.DualVisualizer as vis
+
 import matplotlib as mpl
 mpl.rcParams['toolbar'] = 'None'
 import matplotlib.pyplot as plt
@@ -564,3 +566,30 @@ def visualize_local_features(local_window_features,
             # Plot
             plt.show()
             plt.pause(0.0001)
+
+def visualize_meshcat(global_frame_features,
+                      robot_ml, human_ml):
+
+    # prepare visualizer
+    viz = vis.DualVisualizer(ml1=robot_ml, ml2=human_ml, model1_name="robot", model2_name="human")
+    viz.load_model()
+
+    input("Start visualization")
+
+    for i in range(len(global_frame_features.base_positions)):
+
+        # Retrieve the base pose and the joint positions
+        base_position = global_frame_features.base_positions[i]
+        base_quaternion = global_frame_features.base_quaternions[i]
+        joint_positions = global_frame_features.s[i]
+
+        human_base_position = global_frame_features.human_base_positions[i]
+        human_base_quaternion = global_frame_features.human_base_quaternions[i]
+        human_joint_positions = global_frame_features.human_s[i]
+
+        I_H_RB = np.vstack((np.hstack((Rotation.from_quat(base_quaternion, scalar_first=True).as_matrix(), base_position.reshape(3, 1))), [0, 0, 0, 1]))
+
+        I_H_HB = np.vstack((np.hstack((Rotation.from_quat(human_base_quaternion, scalar_first=True).as_matrix(), human_base_position.reshape(3, 1))), [0, 0, 0, 1]))
+
+        # Update the model configuration
+        viz.update_models(joint_positions, human_joint_positions, I_H_RB, I_H_HB)

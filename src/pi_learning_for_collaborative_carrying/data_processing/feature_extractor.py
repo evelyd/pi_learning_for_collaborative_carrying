@@ -41,9 +41,12 @@ class GlobalFrameFeatures:
     human_base_linear_velocities: List = field(default_factory=list)
     human_base_angular_velocities: List = field(default_factory=list)
 
+    human_s: List = field(default_factory=list)
+
     plot_global_vels: bool = False
     plot_human_features: bool = False
     plot_robot_v_human: bool = False
+    start_at_origin: bool = False
 
     @staticmethod
     def build(ik_solutions: List,
@@ -52,8 +55,8 @@ class GlobalFrameFeatures:
               dt_mean: float,
               plot_global_vels: bool = False,
               plot_human_features: bool = False,
-              plot_robot_v_human: bool = False
-              ) -> "GlobalFrameFeatures":
+              plot_robot_v_human: bool = False,
+              start_at_origin: bool = False) -> "GlobalFrameFeatures":
         """Build an empty GlobalFrameFeatures."""
 
         return GlobalFrameFeatures(ik_solutions=ik_solutions,
@@ -61,7 +64,8 @@ class GlobalFrameFeatures:
                                    controlled_joints_indexes=controlled_joints_indexes,
                                    dt_mean=dt_mean, plot_global_vels=plot_global_vels,
                                    plot_human_features=plot_human_features,
-                                   plot_robot_v_human=plot_robot_v_human
+                                   plot_robot_v_human=plot_robot_v_human,
+                                   start_at_origin=start_at_origin
                                    )
 
     def plot_raw_and_smoothed_vels(self) -> None:
@@ -269,11 +273,45 @@ class GlobalFrameFeatures:
             human_base_linear_velocity_raw = np.asarray(human_ik_solution["base_linear_velocity"])
             human_base_angular_velocity_raw = np.asarray(human_ik_solution["base_angular_velocity"])
 
+            # Include the human joints for visualization purposes only
+            human_joint_positions = np.asarray(human_ik_solution["joint_positions"])
+
+            # Hf the start at origin var is false, then transform both robot and human s.t. robot starts at xy origin (yaw 0)
+            if self.start_at_origin:
+
+                # Get the initial robot transform
+                initial_solution = self.ik_solutions[0]
+                initial_base_position = np.asarray(initial_solution["base_position"])
+                initial_base_quaternion = np.asarray(initial_solution["base_quaternion"])
+                initial_rotation = Rotation.from_quat(initial_base_quaternion, scalar_first=True)
+                initial_R_yaw = Rotation.from_euler('z', initial_rotation.as_euler('xyz')[2])
+                initial_translation = np.array([initial_base_position[0], initial_base_position[1], 0])
+
+                # Transform the base position and orientation to the initial frame
+                current_rotation = Rotation.from_quat(base_quaternion, scalar_first=True)
+                current_translation = base_position
+
+                transformed_translation = initial_R_yaw.inv().apply(current_translation - initial_translation)
+                transformed_rotation = initial_R_yaw.inv() * current_rotation
+
+                base_position = transformed_translation
+                base_quaternion = transformed_rotation.as_quat(scalar_first=True)
+
+                # Transform the human base position and orientation to the initial frame
+                current_human_rotation = Rotation.from_quat(human_base_quaternion, scalar_first=True)
+                current_human_translation = human_base_position
+
+                transformed_human_translation = initial_R_yaw.inv().apply(current_human_translation - initial_translation)
+                transformed_human_rotation = initial_R_yaw.inv() * current_human_rotation
+
+                human_base_position = transformed_human_translation
+                human_base_quaternion = transformed_human_rotation.as_quat(scalar_first=True)
+
             # Base position
             self.base_positions.append(base_position)
 
             # Base quaternion
-            self.base_quaternions.append(base_quaternion)\
+            self.base_quaternions.append(base_quaternion)
 
             # Human base position
             self.human_base_positions.append(human_base_position)
@@ -296,6 +334,8 @@ class GlobalFrameFeatures:
             # Store the raw human base velocities
             self.human_base_linear_velocities_raw.append(human_base_linear_velocity_raw)
             self.human_base_angular_velocities_raw.append(human_base_angular_velocity_raw)
+
+            self.human_s.append(human_joint_positions)
 
         # Smooth out the base velocities
         N = 9 # Filter window size, centered around current frame
@@ -585,6 +625,7 @@ class FeatureExtractor:
     plot_human_features: bool = False
     plot_robot_v_human: bool = False
     plot_local_human_features: bool = False
+    start_at_origin: bool = False
 
     @staticmethod
     def build(ik_solutions: List,
@@ -596,7 +637,8 @@ class FeatureExtractor:
               plot_global_vels: bool = False,
               plot_human_features: bool = False,
               plot_robot_v_human: bool = False,
-              plot_local_human_features: bool = False) -> "FeatureExtractor":
+              plot_local_human_features: bool = False,
+              start_at_origin: bool = False) -> "FeatureExtractor":
         """Build a FeatureExtractor."""
 
         # Define the lenght, expressed in frames, of the window of interest (default=50)
@@ -614,7 +656,8 @@ class FeatureExtractor:
                                         controlled_joints_indexes=controlled_joints_indexes,
                                         dt_mean=dt_mean, plot_global_vels=plot_global_vels,
                                         plot_human_features=plot_human_features,
-                                        plot_robot_v_human=plot_robot_v_human)
+                                        plot_robot_v_human=plot_robot_v_human,
+                                        start_at_origin=start_at_origin)
         gwf = GlobalWindowFeatures.build(window_length_frames=window_length_frames,
                                          window_step=window_step,
                                          window_indexes=window_indexes)
