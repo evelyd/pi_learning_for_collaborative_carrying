@@ -11,14 +11,12 @@ human_joints_list = ['jLeftHip_rotx', 'jL5S1_rotx', 'jRightHip_rotx',
 
 # the joints are ordered as in the joints_list
 # for model trained with shoulder/leg limits during retargeting
-# initial_joints_configuration = [-0.109211802482605,   0.0189453512430191,  0.0716380625963211,
-#                                 -0.0714476704597473, -0.0932039991021156, -0.0208237245678902, # left leg
-#                                 -0.1050799787044525,  0.0326064452528954,  0.0738783776760101,
-#                                 -0.0878700911998749, -0.1038161143660545, -0.033658355474472, # right leg
-#                                 0.1518884301185608,  0.0002858876541723, -0.0078760478645563, # torso
-#                                 -0.0006626695394516, -0.0016657877713442, -0.0008768864790909, # neck
-#                                 -0.0355104058980942,  0.1000002548098564, -0.220658615231514, 0.0449834764003754, # left arm
-#                                 -0.0414549671113491,  0.0999528989195824, -0.2240447998046875,  0.0454560518264771] # right arm
+# initial_joints_configuration = [0.0036297440614715196, 0.029411764034607685, -0.012146692744945772, -0.0048554114872813095, 0.00409973896375526, -0.04229326696873599, # left leg
+# 0.0003280223671510321, 0.029411765153663307, -0.012249749306457123, 0.0010131612332878901, 0.007286391880393088, -0.042258674686429014, # right leg
+# -0.05000034750525513, 0.04999915197184974, -0.043485347491471815, #torso
+# -0.0500000329604683, 0.04125879710832599, 0.024043276220421274, #neck
+# 0.048304244207767154, 1.615931004002181, -0.037477399700386486, -0.01298800846269495, # left arm
+# 0.03897236374766735, 1.5243838010732844, -0.04171736109521154, -0.030800414629153724]# right arm
 
 # initial joint config hard coded if arms are down
 initial_joints_configuration = [0.0, 0.0, 0.0,
@@ -31,7 +29,8 @@ initial_joints_configuration = [0.0, 0.0, 0.0,
                                 0.0, 0.0, 0.0, 0.0] # right arm
 
 initial_base_height = 0.7748
-initial_base_quaternion =  [0.0, -0.0399893, 0.0, 0.9992001] # [x, y, z, w]
+# initial_base_quaternion =  [0.0, -0.0399893, 0.0, 0.9992001] # [x, y, z, w]
+initial_base_quaternion = [0.0, 0.0, 0.0, 1.0]
 
 root_link_frame_name = "root_link"
 chest_link_frame_name = "chest"
@@ -74,5 +73,4 @@ switch_off_after = 0.04
 
 [MANN]
 projected_base_datapoints = 12
-onnx_model_path = "../datasets/trained_models/training_test_collab_20241122-110309/training_test_collab_20241122-110309_ep149.onnx"
-#"./config/training_subsampled_mirrored_10x_pi_20240514-173315_ep130.onnx"
+onnx_model_path = "../datasets/trained_models/training_test_collab_no_pi_i_h_hb_no_bending_start_origin_20241129-171818/training_test_collab_no_pi_i_h_hb_no_bending_start_origin_20241129-171818_ep149.onnx"

@@ -115,9 +115,17 @@ def define_storage_folder() -> str:
     script_directory = os.path.dirname(os.path.abspath(__file__))
 
     # Set storage folder
-    storage_folder = script_directory + '/../datasets/training'
+    storage_folder = script_directory + '/../datasets/trained_models/training'
 
     storage_folder += "_test_collab"
+
+    if pi_weight == 0.0:
+        storage_folder += "_no_pi"
+
+    if len(portions) < 2:
+        storage_folder += "_portion_" + str(portions[0])
+
+    storage_folder += "_i_h_hb_no_bending_start_origin"
 
     # Debug
     print("\nStorage folder:", storage_folder, "\n")

@@ -18,6 +18,7 @@ plt.rcParams.update({'font.family':'serif'})
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--model_name", help="File name of the trained model to be simulated.", type=str, default="../datasets/onnx/training_subsampled_mirrored_10x_pi_20240514-173315_ep130.onnx")
+
 args = parser.parse_args()
 model_name = args.model_name
 
@@ -52,12 +53,10 @@ params_human_input = blf.parameters_handler.TomlParametersHandler()
 assert input_builder.initialize(params_human_input)
 
 # Initial joint positions configuration. The serialization is specified in the config file
-# TODO change this? based on new network outputs?
 # joint_positions = params_network.get_parameter_vector_float("initial_joints_configuration") #causes flipping around
 joint_positions = np.zeros(len(params_network.get_parameter_vector_float("initial_joints_configuration")))
 
 # Initial base pose. This pose makes the robot stand on the ground with the feet flat
-#TODO should this change to be within the possibilities of the network?
 initial_base_height = params_network.get_parameter_float("initial_base_height")
 quat = params_network.get_parameter_vector_float("initial_base_quaternion")
 quat = quat / np.linalg.norm(quat) # Normalize the quaternion
@@ -115,13 +114,10 @@ for i in range(length_of_time):
     input_builder_input.human_base_linear_velocity = human_base_linear_velocities[i]
     input_builder_input.human_base_angular_velocity = human_base_angular_velocities[i]
 
-    if i == 0:
-        print(f"Human base position: {input_builder_input.human_base_position}")
-        print(f"Human base angle: {input_builder_input.human_base_angle}")
-        print(f"Human base linear velocity: {input_builder_input.human_base_linear_velocity}")
-        print(f"Human base angular velocity: {input_builder_input.human_base_angular_velocity}")
-        if i == 0:
-            input("Press a key to continue")
+    print(f"Human base position: {input_builder_input.human_base_position}")
+    print(f"Human base angle: {input_builder_input.human_base_angle}")
+    print(f"Human base linear velocity: {input_builder_input.human_base_linear_velocity}")
+    print(f"Human base angular velocity: {input_builder_input.human_base_angular_velocity}")
 
     # Advance the input builder
     input_builder.set_input(input_builder_input)
@@ -150,7 +146,12 @@ for i in range(length_of_time):
     human_joint_state = s_H[i]
     human_base_pose = I_H_HB[i] # This is in the world frame
 
+    if i == 0:
+        print(human_base_pose, human_base_linear_velocities[i], human_base_angular_velocities[i])
+
     viz.update_models(robot_joint_state, human_joint_state, robot_base_pose, human_base_pose)
+
+    input("press a key to continue")
 
 # get the mse of the foot vels only when that foot is in contact
 left_foot_vel_error = np.zeros(shape=(length_of_time,1))
