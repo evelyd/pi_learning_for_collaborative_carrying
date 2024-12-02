@@ -68,14 +68,14 @@ robot_data_path = os.path.join(script_directory, "../datasets/collaborative_payl
 human_data = utils.get_human_base_pose_from_retargeted_data(human_data_path, robot_data_path)
 
 # Extract the relevant part of the file name to determine the start time
-start_end_dict = {"forward_backward": [607, 2670], "left_right": [610, 4060]} # Cut off bending over
+start_end_dict = {"forward_backward": [600, 2670], "left_right": [590, 4090]} # Cut off bending over
 file_key = None
 for key in start_end_dict.keys():
     if key in human_data_path:
         file_key = key
 
-start_ind = start_end_dict[file_key][0]
-end_ind = start_end_dict[file_key][1]
+start_ind = int(start_end_dict[file_key][0]/2)
+end_ind = int(start_end_dict[file_key][1]/2)
 
 # Get the human base poses and joint positions from the retargeted data (in data robot base frame)
 I_H_HB = [human_data["base_pose"] for human_data in human_data[start_ind:end_ind]]

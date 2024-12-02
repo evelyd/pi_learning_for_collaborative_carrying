@@ -42,7 +42,9 @@ def get_human_base_pose_from_retargeted_data(human_file_path: str, robot_file_pa
         content = file.read()
         content = json.loads(content)
 
-        for data_point in content:
+        for idx, data_point in enumerate(content):
+            if idx % 2 == 0:
+                continue
 
             base_position = data_point.get("base_position", [])
             base_quaternion = data_point.get("base_quaternion", [])
@@ -62,7 +64,9 @@ def get_human_base_pose_from_retargeted_data(human_file_path: str, robot_file_pa
         content = file.read()
         content = json.loads(content)
 
-        for data_point in content:
+        for idx, data_point in enumerate(content):
+            if idx % 2 == 0:
+                continue
 
             base_position = data_point.get("base_position", [])
             base_quaternion = data_point.get("base_quaternion", [])

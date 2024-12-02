@@ -73,4 +73,4 @@ switch_off_after = 0.04
 
 [MANN]
 projected_base_datapoints = 12
-onnx_model_path = "../datasets/trained_models/training_test_collab_no_pi_i_h_hb_no_bending_start_origin_20241129-171818/training_test_collab_no_pi_i_h_hb_no_bending_start_origin_20241129-171818_ep149.onnx"
+onnx_model_path = "../datasets/trained_models/training_test_collab_no_pi_i_h_hb_no_bending_start_origin_subsampled_20241202-164937/training_test_collab_no_pi_i_h_hb_no_bending_start_origin_subsampled_20241202-164937_ep149.onnx"

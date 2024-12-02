@@ -254,7 +254,7 @@ class GlobalFrameFeatures:
         print("Computing global frame features")
 
         # Subsampling (discard one ik solution over two)
-        for frame_idx in range(0, len(self.ik_solutions)):
+        for frame_idx in range(0, len(self.ik_solutions), 2):
 
             ik_solution = self.ik_solutions[frame_idx]
             human_ik_solution = self.human_ik_solutions[frame_idx]
