@@ -19,62 +19,6 @@ mpl.rcParams['toolbar'] = 'None'
 import matplotlib.pyplot as plt
 plt.rcParams.update({'font.family':'serif'})
 
-def load_input_mean_and_std(datapath: str) -> (Dict, Dict):
-    """Compute component-wise input mean and standard deviation."""
-
-    # Full-input mean and std
-    Xmean = read_from_file(datapath + 'X_mean.txt')
-    Xstd = read_from_file(datapath + 'X_std.txt')
-
-    # Remove zeroes from Xstd
-    for i in range(Xstd.size):
-        if Xstd[i] == 0:
-            Xstd[i] = 1
-
-    return Xmean, Xstd
-
-def load_output_mean_and_std(datapath: str) -> (List, List):
-    """Compute output mean and standard deviation."""
-
-    # Full-output mean and std
-    Ymean = read_from_file(datapath + 'Y_mean.txt')
-    Ystd = read_from_file(datapath + 'Y_std.txt')
-
-    # Remove zeroes from Ystd
-    for i in range(Ystd.size):
-        if Ystd[i] == 0:
-            Ystd[i] = 1
-
-    return Ymean, Ystd
-
-def read_from_file(filename: str) -> np.array:
-    """Read data as json from file."""
-
-    with open(filename, 'r') as openfile:
-        data = json.load(openfile)
-
-    return np.array(data)
-
-def form_next_past_velocity_window(current_past_trajectory_base_velocities: List, current_base_velocity: List, current_world_R_base: np.array, new_world_R_base: np.array) -> List:
-    """Form the next velocity window from the current past trajectory velocities, for either linear or angular velocities."""
-
-    # Update the full window storing the past base velocities
-    new_past_trajectory_base_velocities = []
-    for k in range(len(current_past_trajectory_base_velocities) - 1):
-        # Element in the reference frame defined by the previous base position + orientation
-        base_elem = current_past_trajectory_base_velocities[k + 1]
-        # Express element in world frame
-        world_elem = current_world_R_base.dot(base_elem)
-        # Express element in the frame defined by the new base position + orientation
-        new_base_elem = np.linalg.inv(new_world_R_base).dot(world_elem)
-        # Store updated element
-        new_past_trajectory_base_velocities.append(new_base_elem)
-
-    # Add as last element the current (local) base velocity (from the output)
-    new_past_trajectory_base_velocities.append(current_base_velocity)
-
-    return new_past_trajectory_base_velocities
-
 parser = argparse.ArgumentParser()
 parser.add_argument("--model_dir", help="Directory of the trained model to be simulated.", type=str, default="../datasets/trained_models/training_test_collab_no_pi_i_h_hb_no_bending_start_origin_subsampled_20241202-164937/")
 
@@ -135,8 +79,8 @@ input_vector = np.array(input_stuff[0])
 
 # Compute component-wise input mean and standard deviation
 datapath = os.path.join(model_dir, "normalization/")
-Xmean, Xstd = load_input_mean_and_std(datapath)
-Ymean, Ystd = load_output_mean_and_std(datapath)
+Xmean, Xstd = utils.load_input_mean_and_std(datapath)
+Ymean, Ystd = utils.load_output_mean_and_std(datapath)
 
 # Define the initial past robot base velocities
 current_past_base_linear_velocities = [[0.0, 0.0, 0.0] for _ in range(51)]
@@ -153,12 +97,12 @@ for i in range(length_of_time):
     # Get the human base pose from the input vector
     human_base_position = input_vector[130:133]
     human_base_orientation = input_vector[133:136]
-    human_base_pose = np.vstack((np.hstack((Rotation.from_euler('xyz', human_base_orientation).as_matrix(), human_base_position.reshape(3,1))), np.array([0, 0, 0, 1])))
+    human_base_pose = utils.get_base_pose(human_base_position, human_base_orientation)
 
     # Compute current robot base pose
     current_robot_base_position = input_vector[124:127]
     current_robot_base_orientation = input_vector[127:130]
-    current_robot_base_pose = np.vstack((np.hstack((Rotation.from_euler('xyz', current_robot_base_orientation).as_matrix(), current_robot_base_position.reshape(3,1))), np.array([0, 0, 0, 1])))
+    current_robot_base_pose = utils.get_base_pose(current_robot_base_position, current_robot_base_orientation)
 
     # Normalize input vector
     input_vector = (input_vector - Xmean) / Xstd
@@ -175,18 +119,18 @@ for i in range(length_of_time):
     # Denormalize output
     denormalized_current_output = current_output * Ystd + Ymean
 
+    # Get the parts of the output
+    output_dict = utils.parse_output(denormalized_current_output)
+
     # Get the robot pose and joint state from the output
-    robot_joint_state = denormalized_current_output[42:68]
-    robot_base_position = denormalized_current_output[94:97]
-    robot_base_orientation = denormalized_current_output[97:]
-    robot_base_pose = np.vstack((np.hstack((Rotation.from_euler('xyz', robot_base_orientation).as_matrix(), robot_base_position.reshape(3,1))), np.array([0, 0, 0, 1])))
+    robot_base_pose = utils.get_base_pose(output_dict["robot_base_position"], output_dict["robot_base_orientation"])
 
     # Get the human joint state from the input vector
     #TODO ith or i+1 th?
     human_joint_state = human_joint_positions[i]
 
     # Update visualization
-    viz.update_models(robot_joint_state, human_joint_state, robot_base_pose, human_base_pose)
+    viz.update_models(output_dict["robot_joint_state"], human_joint_state, robot_base_pose, human_base_pose)
 
     if i == 0:
         input("Press a key to start the trajectory generation")
@@ -194,40 +138,27 @@ for i in range(length_of_time):
     # Form input vector for next iteration
     new_input_vector = []
 
-    # Compute the next velocity windows
-    current_linear_velocity = denormalized_current_output[0:3]
-
-    # Compute the new last 50 velocities
-    current_past_base_linear_velocities = form_next_past_velocity_window(current_past_base_linear_velocities, current_linear_velocity, current_robot_base_pose[:3,:3], robot_base_pose[:3,:3])
+    # Compute the new last 50 linear velocities
+    current_past_base_linear_velocities = utils.form_next_past_velocity_window(current_past_base_linear_velocities, output_dict["current_linear_velocity"], current_robot_base_pose[:3,:3], robot_base_pose[:3,:3])
 
     # Get the past window from the previous velocities
     subsampled_past_linear_velocities = [item for sublist in [current_past_base_linear_velocities[j] for j in [0, 10, 20, 30, 40, 50]] for item in sublist]
-    future_linear_velocities = denormalized_current_output[3:21]
     new_input_vector.extend(subsampled_past_linear_velocities)
-    new_input_vector.extend(future_linear_velocities)
+    new_input_vector.extend(output_dict["future_linear_velocities"])
 
-    current_angular_velocity = denormalized_current_output[21:24]
-
-    # Compute the new last 50 velocities
-    current_past_base_angular_velocities = form_next_past_velocity_window(current_past_base_angular_velocities, current_angular_velocity, current_robot_base_pose[:3,:3], robot_base_pose[:3,:3])
+    # Compute the new last 50 angular velocities
+    current_past_base_angular_velocities = utils.form_next_past_velocity_window(current_past_base_angular_velocities, output_dict["current_angular_velocity"], current_robot_base_pose[:3,:3], robot_base_pose[:3,:3])
 
     # Get the past window from the previous velocities
     subsampled_past_angular_velocities = [item for sublist in [current_past_base_angular_velocities[j] for j in [0, 10, 20, 30, 40, 50]] for item in sublist]
     new_input_vector.extend(subsampled_past_angular_velocities)
+    new_input_vector.extend(output_dict["future_angular_velocities"])
 
-    future_angular_velocities = denormalized_current_output[24:42]
-    new_input_vector.extend(future_angular_velocities)
-
-    # Compute the next robot joint state
-    new_input_vector.extend(robot_joint_state)
-
-    # Compute the next robot joint velocity vector
-    robot_joint_velocity = denormalized_current_output[68:94]
-    new_input_vector.extend(robot_joint_velocity)
-
-    # Compute next base position and orientation
-    new_input_vector.extend(robot_base_position)
-    new_input_vector.extend(robot_base_orientation)
+    # Add the robot joint information and base pose information
+    new_input_vector.extend(output_dict["robot_joint_state"])
+    new_input_vector.extend(output_dict["robot_joint_velocity"])
+    new_input_vector.extend(output_dict["robot_base_position"])
+    new_input_vector.extend(output_dict["robot_base_orientation"])
 
     # Compute the next human base pose and velocity (from the "user input" data)
     new_human_base_position = human_base_positions[i+1]

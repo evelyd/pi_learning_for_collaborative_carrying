@@ -190,3 +190,80 @@ def get_human_base_pose_from_retargeted_data(human_file_path: str, robot_file_pa
     plt.show()
 
     return RB_human_data_HB
+
+def load_input_mean_and_std(datapath: str) -> (Dict, Dict):
+    """Compute component-wise input mean and standard deviation."""
+
+    # Full-input mean and std
+    Xmean = read_from_file(datapath + 'X_mean.txt')
+    Xstd = read_from_file(datapath + 'X_std.txt')
+
+    # Remove zeroes from Xstd
+    for i in range(Xstd.size):
+        if Xstd[i] == 0:
+            Xstd[i] = 1
+
+    return Xmean, Xstd
+
+def load_output_mean_and_std(datapath: str) -> (List, List):
+    """Compute output mean and standard deviation."""
+
+    # Full-output mean and std
+    Ymean = read_from_file(datapath + 'Y_mean.txt')
+    Ystd = read_from_file(datapath + 'Y_std.txt')
+
+    # Remove zeroes from Ystd
+    for i in range(Ystd.size):
+        if Ystd[i] == 0:
+            Ystd[i] = 1
+
+    return Ymean, Ystd
+
+def read_from_file(filename: str) -> np.array:
+    """Read data as json from file."""
+
+    with open(filename, 'r') as openfile:
+        data = json.load(openfile)
+
+    return np.array(data)
+
+def form_next_past_velocity_window(current_past_trajectory_base_velocities: List, current_base_velocity: List, current_world_R_base: np.array, new_world_R_base: np.array) -> List:
+    """Form the next velocity window from the current past trajectory velocities, for either linear or angular velocities."""
+
+    # Update the full window storing the past base velocities
+    new_past_trajectory_base_velocities = []
+    for k in range(len(current_past_trajectory_base_velocities) - 1):
+        # Element in the reference frame defined by the previous base position + orientation
+        base_elem = current_past_trajectory_base_velocities[k + 1]
+        # Express element in world frame
+        world_elem = current_world_R_base.dot(base_elem)
+        # Express element in the frame defined by the new base position + orientation
+        new_base_elem = np.linalg.inv(new_world_R_base).dot(world_elem)
+        # Store updated element
+        new_past_trajectory_base_velocities.append(new_base_elem)
+
+    # Add as last element the current (local) base velocity (from the output)
+    new_past_trajectory_base_velocities.append(current_base_velocity)
+
+    return new_past_trajectory_base_velocities
+
+def get_base_pose(base_position: List, base_orientation: List) -> np.array:
+    """Get the base pose from the base position and orientation."""
+
+    base_pose = np.vstack((np.hstack((Rotation.from_euler('xyz', base_orientation).as_matrix(), np.array(base_position).reshape(3,1))), np.array([0, 0, 0, 1])))
+
+    return base_pose
+
+def parse_output(denormalized_output: List) -> Dict:
+    """Parse the output to get the robot joint states and base poses."""
+    output_dict = {
+        "current_linear_velocity": denormalized_output[0:3],
+        "future_linear_velocities": denormalized_output[3:21],
+        "current_angular_velocity": denormalized_output[21:24],
+        "future_angular_velocities": denormalized_output[24:42],
+        "robot_joint_state": denormalized_output[42:68],
+        "robot_joint_velocity": denormalized_output[68:94],
+        "robot_base_position": denormalized_output[94:97],
+        "robot_base_orientation": denormalized_output[97:]
+    }
+    return output_dict
