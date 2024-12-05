@@ -59,7 +59,7 @@ end_ind = int(start_end_dict[file_key][1]/2)
 # Get the human control inputs
 human_base_poses = [np.array(data["base_pose"]) for data in human_data[start_ind:end_ind]]
 human_base_positions = [pose[:3,3] for pose in human_base_poses]
-human_base_orientations = [Rotation.from_matrix(pose[:3,:3]).as_euler('xyz') for pose in human_base_poses]
+human_base_orientations = [pose[:3,:3].reshape(9) for pose in human_base_poses]
 human_base_linear_velocities = [np.array(data["base_linear_velocity"]) for data in human_data[start_ind:end_ind]]
 human_base_angular_velocities = [np.array(data["base_angular_velocity"]) for data in human_data[start_ind:end_ind]]
 human_joint_positions = [np.array(data["joint_positions"]) for data in human_data[start_ind:end_ind]]
@@ -94,15 +94,15 @@ learned_model.eval()
 length_of_time = 500
 for i in range(length_of_time):
 
-    # Get the human base pose from the input vector
-    human_base_position = input_vector[130:133]
-    human_base_orientation = input_vector[133:136]
-    human_base_pose = utils.get_base_pose(human_base_position, human_base_orientation)
-
     # Compute current robot base pose
     current_robot_base_position = input_vector[124:127]
-    current_robot_base_orientation = input_vector[127:130]
+    current_robot_base_orientation = input_vector[127:136]
     current_robot_base_pose = utils.get_base_pose(current_robot_base_position, current_robot_base_orientation)
+
+    # Get the human base pose from the input vector
+    human_base_position = input_vector[136:139]
+    human_base_orientation = input_vector[139:148]
+    human_base_pose = utils.get_base_pose(human_base_position, human_base_orientation)
 
     # Normalize input vector
     input_vector = (input_vector - Xmean) / Xstd

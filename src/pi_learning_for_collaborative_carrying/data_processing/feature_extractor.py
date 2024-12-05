@@ -722,19 +722,19 @@ class FeatureExtractor:
             prev_base_position = self.global_frame_features.base_positions[i - 1]
             X_i.extend(prev_base_position)
 
-            # Add previous inertial frame base euler angles (3 components)
-            prev_base_euler_angles = Rotation.from_quat(
-                self.global_frame_features.base_quaternions[i - 1], scalar_first=True).as_euler('xyz')
-            X_i.extend(prev_base_euler_angles)
+            # Add previous inertial frame base orientation (9 components)
+            prev_base_rotation_matrix = Rotation.from_quat(
+                self.global_frame_features.base_quaternions[i - 1], scalar_first=True).as_matrix().flatten()
+            X_i.extend(prev_base_rotation_matrix)
 
             # Add previous human base position expressed in inertial frame (3 components)
             prev_human_base_position = self.global_frame_features.human_base_positions[i - 1]
             X_i.extend(prev_human_base_position)
 
-            # Add previous human base orientation expressed in inertial frame (3 components)
-            prev_human_base_euler_angles = Rotation.from_quat(
-                self.global_frame_features.human_base_quaternions[i - 1], scalar_first=True).as_euler('xyz')
-            X_i.extend(prev_human_base_euler_angles)
+            # Add previous human base orientation expressed in inertial frame (9 components)
+            prev_human_base_rotation_matrix = Rotation.from_quat(
+                self.global_frame_features.human_base_quaternions[i - 1], scalar_first=True).as_matrix().flatten()
+            X_i.extend(prev_human_base_rotation_matrix)
 
             # Add previous human base linear velocity expressed in robot base frame (3 components)
             prev_human_base_linear_velocity = self.local_frame_features.human_base_linear_velocities[i - 1]
@@ -744,7 +744,7 @@ class FeatureExtractor:
             prev_human_base_angular_velocity = self.local_frame_features.human_base_angular_velocities[i - 1]
             X_i.extend(prev_human_base_angular_velocity)
 
-            # Store current input vector (142 components)
+            # Store current input vector (154 components)
             X.append(X_i)
 
         # Debug
@@ -796,12 +796,12 @@ class FeatureExtractor:
             current_base_position = self.global_frame_features.base_positions[i]
             Y_i.extend(current_base_position)
 
-            # Add current inertial frame base euler angles (3 components)
-            current_base_euler_angles = Rotation.from_quat(
-                self.global_frame_features.base_quaternions[i], scalar_first=True).as_euler('xyz')
-            Y_i.extend(current_base_euler_angles)
+            # Add current inertial frame base orientation (9 components)
+            current_base_rotation_matrix = Rotation.from_quat(
+                self.global_frame_features.base_quaternions[i], scalar_first=True).as_matrix().flatten()
+            Y_i.extend(current_base_rotation_matrix)
 
-            # Store current output vector (100 components)
+            # Store current output vector (106 components)
             Y.append(Y_i)
 
         # Debug

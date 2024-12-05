@@ -19,6 +19,9 @@ from jax import jit, vmap
 import functools
 from adam.pytorch import KinDynComputationsBatch
 
+# for rotation representations
+import roma
+
 @jit
 @functools.partial(vmap, in_axes=(0, 0, 0, 0))
 def V_b_label_fun(gamma, full_jacobian_LF, full_jacobian_RF, joint_velocity):
@@ -188,45 +191,22 @@ class MANN(nn.Module):
 
         return torch.stack((qx, qy, qz, qw), dim=-1)
 
-    def quaternion_position_to_transform(self, quaternion: torch.Tensor, position: torch.Tensor):
-
-        # Normalize quaternion
-        quaternion = quaternion / torch.norm(quaternion)
-
-        # Extract individual components of the quaternion
-        x, y, z, w = quaternion.unbind(dim=-1)
-
-        # Compute rotation matrix components
-        xx = x * x
-        xy = x * y
-        xz = x * z
-        yy = y * y
-        yz = y * z
-        zz = z * z
-        wx = w * x
-        wy = w * y
-        wz = w * z
-
-        rotation_matrix = torch.stack([
-            1 - 2 * (yy + zz), 2 * (xy - wz), 2 * (xz + wy),
-            2 * (xy + wz), 1 - 2 * (xx + zz), 2 * (yz - wx),
-            2 * (xz - wy), 2 * (yz + wx), 1 - 2 * (xx + yy)
-            ], dim=-1).reshape(quaternion.shape[:-1] + (3, 3))
+    def rotation_position_to_transform(self, rotation_matrix: torch.Tensor, position: torch.Tensor):
 
         # Stack rotation matrix with position
         transformation_matrix = torch.cat([
             torch.cat([rotation_matrix, position.unsqueeze(-1)], dim=-1),
-            torch.tensor([0, 0, 0, 1], dtype=quaternion.dtype, device=quaternion.device).expand(position.shape[:-1] + (1, 4))
+            torch.tensor([0, 0, 0, 1], dtype=rotation_matrix.dtype, device=rotation_matrix.device).expand(position.shape[:-1] + (1, 4))
             ], dim=-2)
 
         return transformation_matrix
 
-    def compute_Vb_label(self, base_position: torch.Tensor, base_angle: torch.Tensor, joint_position: torch.Tensor, V_b: torch.Tensor,
+    def compute_Vb_label(self, base_position: torch.Tensor, base_orientation_batch: torch.Tensor, joint_position: torch.Tensor, V_b: torch.Tensor,
                          joint_velocity: torch.Tensor) -> torch.Tensor:
 
         # Get a base transform matrix from the data
-        base_quaternion = self.euler_to_quaternion(base_angle)
-        H_b = self.quaternion_position_to_transform(base_quaternion, base_position)
+        base_rotation_matrix_batch = base_orientation_batch.reshape(-1, 3, 3)
+        H_b = self.rotation_position_to_transform(base_rotation_matrix_batch, base_position)
 
         # Compute the foot jacobian matrices
         full_jacobian_LF = self.kinDyn.jacobian("l_sole", H_b, joint_position)
@@ -262,14 +242,28 @@ class MANN(nn.Module):
             V_b_angular = pred[:,21:24].float()
             joint_position_batch = pred[:, 42:68].float()
             joint_velocity_batch = pred[:,68:94].float()
-            base_position_batch = pred[:,-6:-3].float()
-            base_angle_batch = pred[:,-3:].float()
+            base_position_batch = pred[:,94:97].float()
+            base_orientation_batch = pred[:,97:].float()
             V_b = torch.cat((V_b_linear, V_b_angular), 1).float()
 
             # Calculate Vb from data for each elem
-            V_b_label_tensor = self.compute_Vb_label(base_position_batch, base_angle_batch, joint_position_batch, V_b, joint_velocity_batch)
+            V_b_label_tensor = self.compute_Vb_label(base_position_batch, base_orientation_batch, joint_position_batch, V_b, joint_velocity_batch)
 
             return V_b_label_tensor, V_b
+
+    def process_prediction(self, pred: torch.Tensor) -> torch.Tensor:
+        processed_pred = pred.clone()
+
+        # Get the base rotation matrix from the prediction
+        robot_base_rotation_matrix = pred[:, 97:].reshape(-1, 3, 3)
+
+        # Use roma to convert the rotation matrix to a valid rotation matrix
+        valid_robot_base_rotation_matrix = roma.special_procrustes(robot_base_rotation_matrix)
+
+        # Flatten the valid rotation matrix and assign it back to processed_pred
+        processed_pred[:, 97:] = valid_robot_base_rotation_matrix.reshape(-1, 9)
+
+        return processed_pred
 
     def train_loop(self, loss_fn: _Loss, optimizer: Optimizer, epoch: int, writer: SummaryWriter) -> None:
         """Run one epoch of training.
@@ -297,10 +291,14 @@ class MANN(nn.Module):
         for batch, (X, y) in enumerate(self.train_dataloader):
 
             pred = self(X.float()).double()
-            mse_loss = loss_fn(pred, y)
+
+            # Preprocess the prediction to convert rotations from procrustes to valid rotations
+            processed_pred = self.process_prediction(pred)
+
+            mse_loss = loss_fn(processed_pred, y)
 
             # Add MSE of Vb and Vbpred
-            V_b_label_tensor, V_b = self.get_pi_loss_components(X, pred)
+            V_b_label_tensor, V_b = self.get_pi_loss_components(X, processed_pred)
             pi_loss = self.pi_weight * loss_fn(V_b_label_tensor, V_b)
 
             loss = mse_loss + pi_loss
@@ -361,9 +359,13 @@ class MANN(nn.Module):
             for X, y in self.test_dataloader:
 
                 pred = self(X.float()).double()
-                cumulative_test_mse_loss += loss_fn(pred, y).item()
 
-                V_b_label_tensor, V_b = self.get_pi_loss_components(X, pred)
+                # Preprocess the prediction to convert rotations from procrustes to valid rotations
+                processed_pred = self.process_prediction(pred)
+
+                cumulative_test_mse_loss += loss_fn(processed_pred, y).item()
+
+                V_b_label_tensor, V_b = self.get_pi_loss_components(X, processed_pred)
                 cumulative_test_pi_loss += self.pi_weight * loss_fn(V_b_label_tensor, V_b).item()
 
                 cumulative_test_loss = cumulative_test_mse_loss + cumulative_test_pi_loss
@@ -389,11 +391,13 @@ class MANN(nn.Module):
             x (torch.Tensor): The input vector for both the Gating and Motion Prediction networks
 
         Returns:
-            pred (torch.Tensor): The output of the Motion Prediction Network
+            processed_pred (torch.Tensor): The output of the Motion Prediction Network, with base rotation matrix constrained to be a valid rotation matrix
         """
 
         with torch.no_grad():
             pred = self(x.float()).double()
 
-        return pred
+            processed_pred = self.process_prediction(pred)
+
+        return processed_pred
 

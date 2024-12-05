@@ -250,7 +250,7 @@ def form_next_past_velocity_window(current_past_trajectory_base_velocities: List
 def get_base_pose(base_position: List, base_orientation: List) -> np.array:
     """Get the base pose from the base position and orientation."""
 
-    base_pose = np.vstack((np.hstack((Rotation.from_euler('xyz', base_orientation).as_matrix(), np.array(base_position).reshape(3,1))), np.array([0, 0, 0, 1])))
+    base_pose = np.vstack((np.hstack((np.array(base_orientation).reshape(3,3), np.array(base_position).reshape(3,1))), np.array([0, 0, 0, 1])))
 
     return base_pose
 
