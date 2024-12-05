@@ -102,6 +102,7 @@ learned_model = torch.load(model_path, map_location=torch.device('cpu'), weights
 learned_model.eval()
 
 predicted_base_positions = []
+predicted_base_orientations = []
 
 length_of_time = 800
 for i in range(length_of_time):
@@ -138,6 +139,7 @@ for i in range(length_of_time):
     robot_base_pose = utils.get_base_pose(output_dict["robot_base_position"], output_dict["robot_base_orientation"])
 
     predicted_base_positions.append(output_dict["robot_base_position"])
+    predicted_base_orientations.append(output_dict["robot_base_orientation"])
 
     # Get the human joint state from the input vector
     #TODO ith or i+1 th?
@@ -192,8 +194,17 @@ with open(initial_output_path, 'r') as file:
 
 # Get the robot base positions from the output feature data
 feature_robot_base_positions = np.array([entry[94:97] for entry in output_stuff])
+feature_robot_base_orientations = np.array([entry[97:106] for entry in output_stuff])
 
 predicted_base_positions = np.array(predicted_base_positions)
+predicted_base_orientations = np.array(predicted_base_orientations)
+
+# Compute the MSE between the predicted and actual robot base orientations
+mse_position = np.mean((predicted_base_positions - feature_robot_base_positions[:len(predicted_base_positions)])**2)
+mse_orientation = np.mean((predicted_base_orientations - feature_robot_base_orientations[:len(predicted_base_orientations)])**2)
+
+print(f'MSE for positions: {mse_position}')
+print(f'MSE for orientations: {mse_orientation}')
 
 plt.figure()
 plt.plot(range(len(predicted_base_positions)), predicted_base_positions[:, 0], label='Predicted X Position')
@@ -205,5 +216,17 @@ plt.plot(range(len(feature_robot_base_positions)), feature_robot_base_positions[
 plt.xlabel('Time Step')
 plt.ylabel('Position')
 plt.title('Predicted vs Actual Robot Base Positions Over Time')
+plt.legend()
+
+plt.figure()
+plt.plot(range(len(predicted_base_orientations)), predicted_base_orientations[:, 0], label='Predicted Roll')
+plt.plot(range(len(predicted_base_orientations)), predicted_base_orientations[:, 1], label='Predicted Pitch')
+plt.plot(range(len(predicted_base_orientations)), predicted_base_orientations[:, 2], label='Predicted Yaw')
+plt.plot(range(len(feature_robot_base_orientations)), feature_robot_base_orientations[:, 0], label='Actual Roll', linestyle='--')
+plt.plot(range(len(feature_robot_base_orientations)), feature_robot_base_orientations[:, 1], label='Actual Pitch', linestyle='--')
+plt.plot(range(len(feature_robot_base_orientations)), feature_robot_base_orientations[:, 2], label='Actual Yaw', linestyle='--')
+plt.xlabel('Time Step')
+plt.ylabel('Orientation (radians)')
+plt.title('Predicted vs Actual Robot Base Orientations Over Time')
 plt.legend()
 plt.show()
