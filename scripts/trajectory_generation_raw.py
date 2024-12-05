@@ -77,6 +77,16 @@ with open(initial_input_path, 'r') as file:
 # Get the initial input vector
 input_vector = np.array(input_stuff[0])
 
+# Get the data inputs
+feature_human_base_positions = np.array([entry[136:139] for entry in input_stuff])
+
+# Replace the human inputs with those of the data
+start_at = 100
+input_vector[136:139] = human_base_positions[start_at]
+input_vector[139:148] = human_base_orientations[start_at]
+input_vector[148:151] = human_base_linear_velocities[start_at]
+input_vector[151:154] = human_base_angular_velocities[start_at]
+
 # Compute component-wise input mean and standard deviation
 datapath = os.path.join(model_dir, "normalization/")
 Xmean, Xstd = utils.load_input_mean_and_std(datapath)
@@ -88,10 +98,12 @@ current_past_base_angular_velocities = [[0.0, 0.0, 0.0] for _ in range(51)] #TOD
 
 # Prepare the model for querying
 model_path = model_dir + "/models/model_149.pth"
-learned_model = torch.load(model_path, weights_only=False)
+learned_model = torch.load(model_path, map_location=torch.device('cpu'), weights_only=False)
 learned_model.eval()
 
-length_of_time = 500
+predicted_base_positions = []
+
+length_of_time = 800
 for i in range(length_of_time):
 
     # Compute current robot base pose
@@ -124,6 +136,8 @@ for i in range(length_of_time):
 
     # Get the robot pose and joint state from the output
     robot_base_pose = utils.get_base_pose(output_dict["robot_base_position"], output_dict["robot_base_orientation"])
+
+    predicted_base_positions.append(output_dict["robot_base_position"])
 
     # Get the human joint state from the input vector
     #TODO ith or i+1 th?
@@ -161,10 +175,10 @@ for i in range(length_of_time):
     new_input_vector.extend(output_dict["robot_base_orientation"])
 
     # Compute the next human base pose and velocity (from the "user input" data)
-    new_human_base_position = human_base_positions[i+1]
-    new_human_base_orientation = human_base_orientations[i+1]
-    new_human_base_linear_velocity = human_base_linear_velocities[i+1]
-    new_human_base_angular_velocity = human_base_angular_velocities[i+1]
+    new_human_base_position = human_base_positions[start_at + i + 1]
+    new_human_base_orientation = human_base_orientations[start_at + i + 1]
+    new_human_base_linear_velocity = human_base_linear_velocities[start_at + i + 1]
+    new_human_base_angular_velocity = human_base_angular_velocities[start_at + i + 1]
     new_input_vector.extend(new_human_base_position)
     new_input_vector.extend(new_human_base_orientation)
     new_input_vector.extend(new_human_base_linear_velocity)
@@ -172,3 +186,24 @@ for i in range(length_of_time):
 
     input_vector = np.array(new_input_vector)
 
+# Plot the predicted vs data robot base positions
+with open(initial_output_path, 'r') as file:
+    output_stuff = json.load(file)
+
+# Get the robot base positions from the output feature data
+feature_robot_base_positions = np.array([entry[94:97] for entry in output_stuff])
+
+predicted_base_positions = np.array(predicted_base_positions)
+
+plt.figure()
+plt.plot(range(len(predicted_base_positions)), predicted_base_positions[:, 0], label='Predicted X Position')
+plt.plot(range(len(predicted_base_positions)), predicted_base_positions[:, 1], label='Predicted Y Position')
+plt.plot(range(len(predicted_base_positions)), predicted_base_positions[:, 2], label='Predicted Z Position')
+plt.plot(range(len(feature_robot_base_positions)), feature_robot_base_positions[:, 0], label='Actual X Position', linestyle='--')
+plt.plot(range(len(feature_robot_base_positions)), feature_robot_base_positions[:, 1], label='Actual Y Position', linestyle='--')
+plt.plot(range(len(feature_robot_base_positions)), feature_robot_base_positions[:, 2], label='Actual Z Position', linestyle='--')
+plt.xlabel('Time Step')
+plt.ylabel('Position')
+plt.title('Predicted vs Actual Robot Base Positions Over Time')
+plt.legend()
+plt.show()
