@@ -78,14 +78,14 @@ with open(initial_input_path, 'r') as file:
 input_vector = np.array(input_stuff[0])
 
 # Get the data inputs
-feature_human_base_positions = np.array([entry[136:139] for entry in input_stuff])
+feature_human_base_positions = np.array([entry[130:133] for entry in input_stuff])
 
 # Replace the human inputs with those of the data
 start_at = 100
-input_vector[136:139] = human_base_positions[start_at]
-input_vector[139:148] = human_base_orientations[start_at]
-input_vector[148:151] = human_base_linear_velocities[start_at]
-input_vector[151:154] = human_base_angular_velocities[start_at]
+input_vector[130:133] = human_base_positions[start_at]
+input_vector[133:136] = human_base_orientations[start_at]
+input_vector[136:139] = human_base_linear_velocities[start_at]
+input_vector[139:142] = human_base_angular_velocities[start_at]
 
 # Compute component-wise input mean and standard deviation
 datapath = os.path.join(model_dir, "normalization/")
@@ -194,7 +194,7 @@ with open(initial_output_path, 'r') as file:
 
 # Get the robot base positions from the output feature data
 feature_robot_base_positions = np.array([entry[94:97] for entry in output_stuff])
-feature_robot_base_orientations = np.array([entry[97:106] for entry in output_stuff])
+feature_robot_base_orientations = np.array([entry[97:100] for entry in output_stuff])
 
 predicted_base_positions = np.array(predicted_base_positions)
 predicted_base_orientations = np.array(predicted_base_orientations)
