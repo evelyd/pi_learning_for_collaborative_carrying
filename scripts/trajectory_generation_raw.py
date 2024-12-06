@@ -42,8 +42,8 @@ human_ml = idyn.ModelLoader()
 human_ml.loadReducedModelFromFile(human_urdf_path, params_network.get_parameter_vector_string("human_joints_list"))
 
 # Get the human joint positions from the retargeted data (subsampled by 2x)
-human_data_path = os.path.join(script_directory, "../datasets/collaborative_payload_carrying/ifeel_and_vive/oct25_2024/forward_backward/retargeted_motion_leader.txt")
-robot_data_path = os.path.join(script_directory, "../datasets/collaborative_payload_carrying/ifeel_and_vive/oct25_2024/forward_backward/retargeted_motion_follower.txt")
+human_data_path = os.path.join(script_directory, "../datasets/collaborative_payload_carrying/ifeel_and_vive/oct25_2024/left_right/retargeted_motion_leader.txt")
+robot_data_path = os.path.join(script_directory, "../datasets/collaborative_payload_carrying/ifeel_and_vive/oct25_2024/left_right/retargeted_motion_follower.txt")
 human_data = utils.get_human_base_pose_from_retargeted_data(human_data_path, robot_data_path)
 
 # Extract the relevant part of the file name to determine the start time
@@ -69,8 +69,8 @@ viz = vis.DualVisualizer(ml1=ml, ml2=human_ml, model1_name="robot", model2_name=
 viz.load_model()
 
 # Set the initial input values from the data
-initial_input_path = script_directory + "/../datasets/collaborative_payload_carrying/ifeel_and_vive/oct25_2024/" + "forward_backward" + "/extracted_features_X.txt"
-initial_output_path = script_directory + "/../datasets/collaborative_payload_carrying/ifeel_and_vive/oct25_2024/" + "forward_backward" + "/extracted_features_Y.txt"
+initial_input_path = script_directory + "/../datasets/collaborative_payload_carrying/ifeel_and_vive/oct25_2024/" + "left_right" + "/extracted_features_X.txt"
+initial_output_path = script_directory + "/../datasets/collaborative_payload_carrying/ifeel_and_vive/oct25_2024/" + "left_right" + "/extracted_features_Y.txt"
 
 with open(initial_input_path, 'r') as file:
     input_stuff = json.load(file)
@@ -218,13 +218,17 @@ plt.ylabel('Position')
 plt.title('Predicted vs Actual Robot Base Positions Over Time')
 plt.legend()
 
+# Convert the rotation matrices to Euler angles
+predicted_robot_base_angles = np.array([Rotation.from_matrix(predicted_base_orientations[i].reshape(3, 3)).as_euler('xyz') for i in range(len(predicted_base_orientations))])
+feature_robot_base_angles = np.array([Rotation.from_matrix(feature_robot_base_orientations[i].reshape(3, 3)).as_euler('xyz') for i in range(len(feature_robot_base_orientations))])
+
 plt.figure()
-plt.plot(range(len(predicted_base_orientations)), predicted_base_orientations[:, 0], label='Predicted Roll')
-plt.plot(range(len(predicted_base_orientations)), predicted_base_orientations[:, 1], label='Predicted Pitch')
-plt.plot(range(len(predicted_base_orientations)), predicted_base_orientations[:, 2], label='Predicted Yaw')
-plt.plot(range(len(feature_robot_base_orientations)), feature_robot_base_orientations[:, 0], label='Actual Roll', linestyle='--')
-plt.plot(range(len(feature_robot_base_orientations)), feature_robot_base_orientations[:, 1], label='Actual Pitch', linestyle='--')
-plt.plot(range(len(feature_robot_base_orientations)), feature_robot_base_orientations[:, 2], label='Actual Yaw', linestyle='--')
+plt.plot(range(len(predicted_robot_base_angles)), predicted_robot_base_angles[:, 0], label='Predicted Roll')
+plt.plot(range(len(predicted_robot_base_angles)), predicted_robot_base_angles[:, 1], label='Predicted Pitch')
+plt.plot(range(len(predicted_robot_base_angles)), predicted_robot_base_angles[:, 2], label='Predicted Yaw')
+plt.plot(range(len(feature_robot_base_angles)), feature_robot_base_angles[:, 0], label='Actual Roll', linestyle='--')
+plt.plot(range(len(feature_robot_base_angles)), feature_robot_base_angles[:, 1], label='Actual Pitch', linestyle='--')
+plt.plot(range(len(feature_robot_base_angles)), feature_robot_base_angles[:, 2], label='Actual Yaw', linestyle='--')
 plt.xlabel('Time Step')
 plt.ylabel('Orientation (radians)')
 plt.title('Predicted vs Actual Robot Base Orientations Over Time')
