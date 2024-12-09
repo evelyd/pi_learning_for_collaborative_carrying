@@ -110,12 +110,12 @@ for i in range(length_of_time):
 
     # Set the input to the builder
     input_builder_input.human_base_position = I_H_HB[i][:3,3]
-    input_builder_input.human_base_angle = Rotation.from_matrix(I_H_HB[i][:3,:3]).as_euler('xyz')
+    input_builder_input.human_base_rotation = I_H_HB[i][:3,:3]
     input_builder_input.human_base_linear_velocity = human_base_linear_velocities[i]
     input_builder_input.human_base_angular_velocity = human_base_angular_velocities[i]
 
     print(f"Human base position: {input_builder_input.human_base_position}")
-    print(f"Human base angle: {input_builder_input.human_base_angle}")
+    print(f"Human base rotation: {input_builder_input.human_base_rotation}")
     print(f"Human base linear velocity: {input_builder_input.human_base_linear_velocity}")
     print(f"Human base angular velocity: {input_builder_input.human_base_angular_velocity}")
 

@@ -18,7 +18,16 @@ human_joints_list = ['jLeftHip_rotx', 'jL5S1_rotx', 'jRightHip_rotx',
 # 0.048304244207767154, 1.615931004002181, -0.037477399700386486, -0.01298800846269495, # left arm
 # 0.03897236374766735, 1.5243838010732844, -0.04171736109521154, -0.030800414629153724]# right arm
 
-# initial joint config hard coded if arms are down
+# Initial joint config from features
+# initial_joints_configuration = [2.00098820e-01, 5.00000202e-02, -4.91100725e-02, 1.90176607e-02,
+#   7.49891976e-02, -1.16530171e-01, 1.42433203e-01, 4.99995431e-02,
+#  -2.49197676e-02, -9.89286855e-02, -4.06773116e-02, -2.91326938e-02,
+#  -2.64719457e-01, 4.01428769e-01, 2.97544645e-01, -5.23593236e-01,
+#   1.64323543e-01, 5.79311158e-01, -2.22458727e+00, 2.61800389e+00,
+#   1.39625636e+00, 1.91940626e-01, 2.06076097e-02, 4.99985976e-02,
+#  -6.11642257e-01, 3.99016770e-01]
+
+# # initial joint config hard coded if arms are down
 initial_joints_configuration = [0.0, 0.0, 0.0,
                                 0.0, 0.0, 0.0, # left leg
                                 0.0, 0.0, 0.0,
@@ -73,4 +82,4 @@ switch_off_after = 0.04
 
 [MANN]
 projected_base_datapoints = 12
-onnx_model_path = "../datasets/trained_models/training_test_collab_no_pi_i_h_hb_no_bending_start_origin_subsampled_20241202-164937/training_test_collab_no_pi_i_h_hb_no_bending_start_origin_subsampled_20241202-164937_ep149.onnx"
+onnx_model_path = "../datasets/trained_models/training_test_collab_no_pi_i_h_hb_no_bending_start_origin_subsampled_r9_20241207-153306/training_test_collab_no_pi_i_h_hb_no_bending_start_origin_subsampled_r9_20241207-153306_ep149.onnx"
