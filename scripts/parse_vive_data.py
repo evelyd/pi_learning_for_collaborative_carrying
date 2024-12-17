@@ -70,21 +70,23 @@ def save_organized_data_to_mat(organized_data, mat_file_path):
     scipy.io.savemat(mat_file_path, organized_data)
 
 # Function to plot positions
-def plot_positions(data, pose_names, ax, colors = ['r', 'b']):
-
+def plot_positions(data, pose_names, ax, colors=['r', 'b']):
     for pose_name, color in zip(pose_names, colors):
-        filtered_positions = np.array(data[pose_name]['positions'])
-        ax.scatter(-filtered_positions[:, 2], -filtered_positions[:, 0], filtered_positions[:, 1], c=color, label=pose_name)
+        timestamps = data[pose_name]['timestamps']
+        positions = np.array(data[pose_name]['positions'])
 
-    ax.set_xlabel('X')
-    ax.set_ylabel('Y')
-    ax.set_zlabel('Z')
+        ax.plot(timestamps, positions[:, 0], c=color, label=f'{pose_name} X')
+        ax.plot(timestamps, positions[:, 1], c=color, linestyle='--', label=f'{pose_name} Y')
+        ax.plot(timestamps, positions[:, 2], c=color, linestyle=':', label=f'{pose_name} Z')
+
+    ax.set_xlabel('Time (s)')
+    ax.set_ylabel('Position')
     ax.legend()
 
 # Main script
 parser = argparse.ArgumentParser()
 parser.add_argument("--data_location", help="Dataset folder to extract features from.",
-                    type=str, default="../datasets/collaborative_payload_carrying/ifeel_and_vive/oct25_2024/forward_backward/")
+                    type=str, default="../datasets/collaborative_payload_carrying/ifeel_and_vive/dec10_2024/1_fb_straight/")
 args = parser.parse_args()
 data_location = args.data_location
 
@@ -95,6 +97,16 @@ mat_file_path = os.path.join(script_directory, data_location + "vive/parsed_vive
 
 # Organize the data by field
 organized_data = parse_and_organize_log_file(log_file_path)
+
+fig = plt.figure()
+
+plot_positions(organized_data, ['vive_tracker_waist_pose', 'vive_tracker_waist_pose2'], fig.add_subplot(321))
+plot_positions(organized_data, ['vive_tracker_left_elbow_pose', 'vive_tracker_left_elbow_pose2'], fig.add_subplot(322))
+plot_positions(organized_data, ['vive_tracker_right_elbow_pose', 'vive_tracker_right_elbow_pose2'], fig.add_subplot(323))
+plot_positions(organized_data, ['vive_tracker_left_foot_pose', 'vive_tracker_left_foot_pose2'], fig.add_subplot(324))
+plot_positions(organized_data, ['vive_tracker_right_foot_pose', 'vive_tracker_right_foot_pose2'], fig.add_subplot(325))
+
+plt.show()
 
 # Save the parsed data to a .mat file
 save_organized_data_to_mat(organized_data, mat_file_path)

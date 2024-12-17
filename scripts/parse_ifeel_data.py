@@ -11,11 +11,17 @@ def parse_and_organize_log_file(log_file_path):
     timestamps = []
     with open(log_file_path, 'r') as file:
         for line in file:
-            match = re.search(r'0 (\d+\.\d+) (\d+\.\d+) "iFeelSuit::" \(\((.*)\)\)', line)
+            if (('dec10_2024' in log_file_path) or ('dec12_2024' in log_file_path)) and ('leader' in log_file_path):
+                match = re.search(r'0 (\d+\.\d+) "iFeelSuit::" \(\((.*)\)\)', line)
+            else:
+                match = re.search(r'0 (\d+\.\d+) (\d+\.\d+) "iFeelSuit::" \(\((.*)\)\)', line)
             if match:
-                timestamp = float(match.group(1))
-                pose_timestamp = float(match.group(2))
-                poses = match.group(3)
+                if (('dec10_2024' in log_file_path) or ('dec12_2024' in log_file_path)) and ('leader' in log_file_path):
+                    pose_timestamp = float(match.group(1))
+                    poses = match.group(2)
+                else:
+                    pose_timestamp = float(match.group(2))
+                    poses = match.group(3)
                 pose_matches = parse_poses(poses)
                 for pose in pose_matches:
                     if any(data_type in pose for data_type in ['orient', 'gyro', 'ft6D']):
@@ -110,17 +116,16 @@ def save_organized_data_to_mat(organized_data, mat_file_path):
 # Main script
 parser = argparse.ArgumentParser()
 parser.add_argument("--data_location", help="Dataset folder to extract features from.",
-                    type=str, default="../datasets/collaborative_payload_carrying/ifeel_and_vive/oct25_2024/forward_backward/")
+                    type=str, default="../datasets/collaborative_payload_carrying/ifeel_and_vive/dec12_2024/1_fb_straight/")
 args = parser.parse_args()
 data_location = args.data_location
 
 # Get path to retargeted data
 script_directory = os.path.dirname(os.path.abspath(__file__))
-# follower_log_file_path = os.path.join(script_directory, data_location + "/follower/data.log")
-follower_log_file_path = "/home/evelyd/pi_learning_for_collaborative_carrying/datasets/collaborative_payload_carrying/ifeel_and_vive/oct25_2024/raw_data/evelyn/experiment_dir_f-b/suit_00001/data.log"
-follower_mat_file_path = os.path.join(script_directory, data_location + "/follower/parsed_ifeel_data.mat")
-leader_log_file_path = os.path.join(script_directory, data_location + "/leader/data.log")
-leader_mat_file_path = os.path.join(script_directory, data_location + "/leader/parsed_ifeel_data.mat")
+follower_log_file_path = os.path.join(script_directory, data_location + "follower/data.log")
+follower_mat_file_path = os.path.join(script_directory, data_location + "follower/parsed_ifeel_data.mat")
+leader_log_file_path = os.path.join(script_directory, data_location + "leader/data.log")
+leader_mat_file_path = os.path.join(script_directory, data_location + "leader/parsed_ifeel_data.mat")
 
 # Parse and organize the log file
 follower_organized_data = parse_and_organize_log_file(follower_log_file_path)
@@ -132,5 +137,35 @@ if "oct25_2024" in follower_log_file_path:
 # Save the organized data to a .mat file
 save_organized_data_to_mat(follower_organized_data, follower_mat_file_path)
 save_organized_data_to_mat(leader_organized_data, leader_mat_file_path)
+
+# Plot node5 data for both follower and leader
+def plot_node5_data(follower_data, leader_data):
+    # fig, axs = plt.subplots(3, 1, figsize=(10, 15))
+    plt.figure()
+    plt.title('Node5 Data for Follower and Leader')
+
+    data_type = 'orient'
+
+    from scipy.spatial.transform import Rotation
+
+    if 'node5' in follower_data and 'node5' in leader_data:
+        follower_node5_data = follower_data['node5'][data_type]
+        follower_node5_rpy = Rotation.from_quat(follower_node5_data, scalar_first=True).as_euler('xyz', degrees=True)
+        leader_node5_data = leader_data['node5'][data_type]
+        leader_node5_rpy = Rotation.from_quat(leader_node5_data, scalar_first=True).as_euler('xyz', degrees=True)
+        follower_timestamps = follower_data['timestamps']
+        leader_timestamps = leader_data['timestamps']
+
+        plt.plot(follower_timestamps, follower_node5_rpy, label=f'Follower Node5 {data_type}')
+        plt.plot(leader_timestamps, leader_node5_rpy, label=f'Leader Node5 {data_type}')
+        plt.title(f'Node5 {data_type}')
+        plt.xlabel('Time (s)')
+        plt.ylabel(data_type)
+        plt.legend()
+
+    plt.tight_layout()
+    plt.show()
+
+plot_node5_data(follower_organized_data, leader_organized_data)
 
 print("Data has been parsed and saved to", follower_mat_file_path, leader_mat_file_path)
