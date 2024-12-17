@@ -121,11 +121,11 @@ class DataConverter:
 
                     # Scale the positions as in teleoperation: https://github.com/robotology/human-dynamics-estimation/blob/82b84f4cb28bc37cdff6cb3250d145b5d29d68cf/conf/xml/RobotStateProvider_ergoCub_openxr_ifeel.xml
                     # Only scale the follower, not the leader
+                    #TODO decide whether to scale hands, don't they need to be the place as in real exp for the box to be held correctly?
                     if not self.retarget_leader:
 
                         # Transform into base frame
-                        # start with openxr_origin_H_sensors, to get those in world frame do I_H_openxr_origin @ openxr_origin_H_sensors, then put in base frame with root_link_H_I @ I_H_openxr_origin @ openxr_origin_H_sensors = root_link_H_sensors
-                        root_link_H_sensors = [I_H_root_link.T @ I_H_openxr_origin @ openxr_origin_H_sensor for openxr_origin_H_sensor, I_H_root_link in zip(openxr_origin_H_sensors, I_H_root_links)]
+                        root_link_H_sensors = [np.linalg.inv(I_H_root_link) @ I_H_sensor for I_H_sensor, I_H_root_link in zip(I_H_sensors, I_H_root_links)]
 
                         if key == 'HEAD_TASK':
                             scaling_factor = [0.7, 0.7, 0.6]
