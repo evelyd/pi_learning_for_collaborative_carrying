@@ -14,7 +14,7 @@ import bipedal_locomotion_framework.bindings as blf
 import jaxsim.api as js
 import resolve_robotics_uri_py
 import biomechanical_analysis_framework as baf
-from scipy.spatial.transform import Rotation
+import re
 
 # ==================
 # USER CONFIGURATION
@@ -23,7 +23,7 @@ from scipy.spatial.transform import Rotation
 parser = argparse.ArgumentParser()
 
 parser.add_argument("--data_location", help="Mocap file to be retargeted. Relative path from script folder.",
-                    type=str, default="../datasets/collaborative_payload_carrying/ifeel_and_vive/oct25_2024/forward_backward")
+                    type=str, default="../datasets/1_fb_straight")
 parser.add_argument("--leader", help="Retarget the leader data.", action="store_true")
 parser.add_argument("--save", help="Store the retargeted motion in json format.", action="store_true")
 parser.add_argument("--deactivate_visualization", help="Do not visualize the retargeted motion.", action="store_true")
@@ -42,7 +42,7 @@ visualize_retargeted_motion = not args.deactivate_visualization
 # Retrieve the robot urdf model
 if retarget_leader:
     script_directory = os.path.dirname(os.path.abspath(__file__))
-    urdf_path = os.path.join(script_directory, "../human_model/humanSubjectWithMesh.urdf")
+    urdf_path = str(resolve_robotics_uri_py.resolve_robotics_uri("package://human-gazebo/humanSubjectWithMesh.urdf"))
 else:
     urdf_path = str(resolve_robotics_uri_py.resolve_robotics_uri("package://ergoCub/robots/ergoCubSN001/model.urdf"))
 
@@ -87,24 +87,34 @@ assert ok
 script_directory = os.path.dirname(os.path.abspath(__file__))
 if retarget_leader:
     mocap_filename = os.path.join(script_directory, data_location + "/leader/parsed_ifeel_data.mat")
+    vive_path = os.path.join(script_directory, data_location + "/vive/interpolated_leader_vive_data.mat")
 else:
     mocap_filename = os.path.join(script_directory, data_location + "/follower/parsed_ifeel_data.mat")
-vive_path = os.path.join(script_directory, data_location + "/vive/interpolated_vive_data.mat")
+    vive_path = os.path.join(script_directory, data_location + "/vive/interpolated_follower_vive_data.mat")
 
-start_end_ind_dict = {"forward_backward/follower": [2049, 5173], "left_right/follower": [4539, 9193], "forward_backward/leader": [3100, 6224], "left_right/leader": [10275, 14929]}
-# Extract the relevant part of the file name to determine the start time
-file_key = None
-for key in start_end_ind_dict.keys():
-    if key in mocap_filename:
-        file_key = key
-        break
+dec12_offset = 1.7340e9
+dec10_offset = 1.7338e9
+time_dict = {1: [dec12_offset + 18747.1912, dec12_offset + 18891.083],
+             2: [dec12_offset + 19082.476, dec12_offset + 19236.077],
+             3: [dec12_offset + 19460.623, dec12_offset + 19607.514],
+             4: [dec12_offset + 19735.744, dec12_offset + 19884.359],
+             5: [dec12_offset + 20045.266, dec12_offset + 20606.536],
+             6: [dec10_offset + 46575.600, dec10_offset + 47181.368]}
 
-if file_key is None:
-    raise ValueError("The file name does not correspond to a defined start time.")
+# Extract the number from data_location
+match = re.search(r'/(\d+)_', data_location)
+if match:
+    data_location_number = int(match.group(1))
+else:
+    raise ValueError("No number found in data location")
 
-start_ind = start_end_ind_dict[file_key][0]
-end_ind = start_end_ind_dict[file_key][1]
-metadata = motion_data.MocapMetadata.build(start_ind=start_ind, end_ind=end_ind)
+# Use the number as the key to time_dict
+if data_location_number in time_dict:
+    start_time, end_time = time_dict[data_location_number]
+else:
+    raise ValueError(f"No time data available for data location number {data_location_number}")
+
+metadata = motion_data.MocapMetadata.build(start_time=start_time, end_time=end_time)
 metadata.add_timestamp()
 
 # Add the tasks to which to assign the target orientation or force data

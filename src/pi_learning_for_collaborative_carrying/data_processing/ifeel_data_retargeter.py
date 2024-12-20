@@ -203,7 +203,7 @@ class WBGR:
             # ==============
 
             # Update orientation and gravity tasks
-            for task in self.motiondata.SE3Tasks + self.motiondata.SO3Tasks + self.motiondata.GravityTasks:
+            for task in self.motiondata.SE3Tasks + self.motiondata.SO3Tasks + self.motiondata.GravityTasks + self.motiondata.FloorContactTasks:
 
                 # Extract data for the update
                 group_name = task['name']
@@ -211,6 +211,13 @@ class WBGR:
                 I_quat_IMU = np.array(task['orientations'][i])
                 node_number = self.metadata.metadata[group_name]['node_number']
                 frame_name = self.metadata.metadata[group_name]['frame_name']
+
+                # Check if I_quat_IMU contains NaNs and reset it to most recent valid one instead
+                if np.isnan(I_quat_IMU).any():
+                    for j in range(i-1, -1, -1):
+                        if not np.isnan(task['orientations'][j]).any():
+                            I_quat_IMU = np.array(task['orientations'][j])
+                            break
 
                 if task_type == 'SE3Task':
                     # Get the orientation data in manif SO3 format, assuming it comes from xyzw form
@@ -235,20 +242,28 @@ class WBGR:
 
                     assert self.humanIK.updateOrientationTask(node_number, I_R_IMU_manif, I_omega_IMU_manif)
 
-                else: # for GravityTask
+                elif task_type == 'GravityTask': # for GravityTask
                     # Get the orientation data in manif SO3 format, assuming it comes from wxyz form
                     I_R_IMU_manif = manif.SO3(quaternion=I_quat_IMU)
 
                     assert self.humanIK.updateGravityTask(node_number, I_R_IMU_manif)
 
-            # Update FloorContactTasks
-            for task in self.motiondata.FloorContactTasks:
-                node_number = self.metadata.metadata[group_name]['node_number']
-                group_name = task['name']
-                force = task['forces'][i]
-                node_number = self.metadata.metadata[group_name]['node_number']
+                else: # for FloorContactTask
+                    node_number = self.metadata.metadata[group_name]['node_number']
+                    group_name = task['name']
+                    force = task['forces'][i]
 
-                assert self.humanIK.updateFloorContactTask(node_number, force, foot_height)
+                    # Get the orientation data in manif SO3 format, assuming it comes from xyzw form
+                    I_R_IMU_manif = manif.SO3(quaternion=I_quat_IMU)
+
+                    # Get the position and the linear velocity of the task
+                    I_position = np.array(task['positions'][i])
+                    I_linear_velocity = np.zeros(3)
+
+                    # Get the angular velocity data in manif SO3Tangent format
+                    I_omega_IMU_manif = manif.SO3Tangent(np.zeros(3))
+
+                    assert self.humanIK.updateFloorContactTask(node_number, force, I_position, I_R_IMU_manif, I_linear_velocity, I_omega_IMU_manif, foot_height)
 
             # Update JointLimitsTask
             assert self.humanIK.updateJointConstraintsTask()

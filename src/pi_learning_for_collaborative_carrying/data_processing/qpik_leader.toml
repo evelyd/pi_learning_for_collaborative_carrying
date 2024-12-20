@@ -14,8 +14,6 @@ tasks = [
     "LEFT_LOWER_LEG_TASK",
     "RIGHT_TOE_TASK",
     "LEFT_TOE_TASK",
-    "RIGHT_FOOT_TASK",
-    "LEFT_FOOT_TASK",
     "JOINT_LIMITS_TASK",
     "JOINT_REG_TASK",
     "JOINT_VEL_LIMITS_TASK"
@@ -147,78 +145,52 @@ rotation_matrix = [1.0, 0.0, 0.0,
                    0.0, 1.0, 0.0]
 
 [RIGHT_UPPER_LEG_TASK]
-type = "SO3Task"
+type = "GravityTask"
 robot_velocity_variable_name = "robot_velocity"
 weight_provider_type = "ConstantWeightProvider"
-frame_name = "RightUpperLeg"
-kp_angular = 20.0
+target_frame_name = "RightUpperLeg"
+kp = 20.0
 node_number = 11
-weight = [1.0, 1.0, 1.0]
+weight = [1.0, 1.0]
 rotation_matrix = [1.0, 0.0, 0.0,
                    0.0, 0.0, 1.0,
                    0.0, -1.0, 0.0]
 
 [RIGHT_LOWER_LEG_TASK]
-type = "SO3Task"
+type = "GravityTask"
 robot_velocity_variable_name = "robot_velocity"
 weight_provider_type = "ConstantWeightProvider"
-frame_name = "RightLowerLeg"
-kp_angular = 20.0
+target_frame_name = "RightLowerLeg"
+kp = 20.0
 node_number = 12
-weight = [1.0, 1.0, 1.0]
+weight = [1.0, 1.0]
 rotation_matrix = [1.0, 0.0, 0.0,
                    0.0, 0.0, 1.0,
                    0.0, -1.0, 0.0]
 
 [LEFT_UPPER_LEG_TASK]
-type = "SO3Task"
+type = "GravityTask"
 robot_velocity_variable_name = "robot_velocity"
 weight_provider_type = "ConstantWeightProvider"
-frame_name = "LeftUpperLeg"
-kp_angular = 20.0
+target_frame_name = "LeftUpperLeg"
+kp = 20.0
 node_number = 9
-weight = [1.0, 1.0, 1.0]
+weight = [1.0, 1.0]
 rotation_matrix = [1.0, 0.0, 0.0,
                    0.0, 0.0, -1.0,
                    0.0, 1.0, 0.0]
 
 [LEFT_LOWER_LEG_TASK]
-type = "SO3Task"
+type = "GravityTask"
 robot_velocity_variable_name = "robot_velocity"
 weight_provider_type = "ConstantWeightProvider"
-frame_name = "LeftLowerLeg"
-kp_angular = 20.0
+target_frame_name = "LeftLowerLeg"
+kp = 20.0
 node_number = 10
-weight = [1.0, 1.0, 1.0]
+weight = [1.0, 1.0]
 rotation_matrix = [1.0, 0.0, 0.0,
                    0.0, 0.0, -1.0,
                    0.0, 1.0, 0.0]
-
-
-[RIGHT_FOOT_TASK]
-type = "GravityTask"
-robot_velocity_variable_name = "robot_velocity"
-weight_provider_type = "ConstantWeightProvider"
-target_frame_name = "RightFoot"
-kp = 20.0
-node_number = 2
-weight = [1.0, 1.0]
-rotation_matrix = [0.0, 1.0, 0.0,
-                  -1.0, 0.0, 0.0,
-                   0.0, 0.0, 1.0]
-
-
-[LEFT_FOOT_TASK]
-type = "GravityTask"
-robot_velocity_variable_name = "robot_velocity"
-weight_provider_type = "ConstantWeightProvider"
-target_frame_name = "LeftFoot"
-kp = 20.0
-node_number = 1
-weight = [1.0, 1.0]
-rotation_matrix = [0.0, 1.0, 0.0,
-                   -1.0, 0.0, 0.0,
-                   0.0, 0.0, 1.0]
 
 [RIGHT_TOE_TASK]
 type = "FloorContactTask"
@@ -226,10 +198,15 @@ robot_velocity_variable_name = "robot_velocity"
 weight_provider_type = "ConstantWeightProvider"
 frame_name = "RightToe"
 kp_linear = 60.0
+kp_angular = 20.0
 node_number = 2
 mask = [true, true, true]
-weight = [30.0, 30.0, 30.0]
+weight = [30.0, 30.0, 30.0, 10.0, 10.0, 10.0]
 vertical_force_threshold = 60.0
+transformation_matrix = [0.0, 1.0, 0.0, 0.0,
+                        0.866, 0.0, -0.5, 0.0,
+                        -0.5, 0.0, -0.866, 0.0,
+                        0.0, 0.0, 0.0, 1.0]
 
 [LEFT_TOE_TASK]
 type = "FloorContactTask"
@@ -237,10 +214,15 @@ robot_velocity_variable_name = "robot_velocity"
 weight_provider_type = "ConstantWeightProvider"
 frame_name = "LeftToe"
 kp_linear = 60.0
+kp_angular = 20.0
 node_number = 1
 mask = [true, true, true]
-weight = [30.0, 30.0, 30.0]
+weight = [30.0, 30.0, 30.0, 10.0, 10.0, 10.0]
 vertical_force_threshold = 60.0
+transformation_matrix = [0.0, 1.0, 0.0, 0.0,
+                        0.866, 0.0, -0.5, 0.0,
+                        -0.5, 0.0, -0.866, 0.0,
+                        0.0, 0.0, 0.0, 1.0]
 
 [JOINT_LIMITS_TASK]
 type = "JointConstraintTask"
@@ -248,9 +230,9 @@ robot_velocity_variable_name = "robot_velocity"
 use_model_limits = false
 sampling_time = 0.017
 k_limits = 1.0
-joints_list = ["jLeftKnee_rotz", "jRightKnee_rotz", "jLeftAnkle_rotz", "jRightAnkle_rotz", "jC7RightShoulder_rotx", "jC7LeftShoulder_rotx", "jT9T8_rotx", "jT9T8_rotz", "jL5S1_roty", "jL5S1_rotx", "jLeftHip_rotx", "jRightHip_rotx", "jLeftAnkle_roty", "jRightAnkle_roty", "jLeftShoulder_rotx", "jRightShoulder_rotx"]
-upper_bounds = [0.001, 0.001, 0.001, 0.001, 0.0872665, 0.25, 0.001, 0.001, 0.001, 0.001, 0.785398, 0.0, 0.0, 0.0, 2.35619, 0.5]
-lower_bounds = [-0.001, -0.001, -0.001, -0.001, -0.25, -0.0872665, -0.001, -0.001, -0.001, -0.001, 0.0, -0.785398, -0.523599, -0.523599, -0.5, -2.35619]
+joints_list = ["jLeftKnee_rotz", "jRightKnee_rotz", "jLeftAnkle_rotz", "jRightAnkle_rotz", "jC7RightShoulder_rotx", "jC7LeftShoulder_rotx", "jT9T8_rotx", "jT9T8_rotz", "jL5S1_roty", "jL5S1_rotx", "jLeftHip_rotx", "jRightHip_rotx", "jLeftAnkle_roty", "jRightAnkle_roty"]
+upper_bounds = [0.001, 0.001, 0.001, 0.001, 0.0872665, 0.25, 0.001, 0.001, 0.001, 0.001, 0.785398, 0.0, 0.0, 0.0]
+lower_bounds = [-0.001, -0.001, -0.001, -0.001, -0.25, -0.0872665, -0.001, -0.001, -0.001, -0.001, 0.0, -0.785398, -0.523599, -0.523599]
 
 [JOINT_REG_TASK]
 type = "JointRegularizationTask"

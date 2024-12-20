@@ -14,7 +14,7 @@ def interpolate_data(original_data_dict, target_timestamps):
 
     # goes throught the elements, not the timesteps, of the actual data (i.e. goes through each of 4 elems of orientation)
     for key in original_data_dict.keys():
-        if key not in ['__header__', '__version__', '__globals__']:
+        if key not in ['__header__', '__version__', '__globals__', 'left_glove', 'right_glove']:
             positions = original_data_dict[key]['positions'][0][0]
             orientations = original_data_dict[key]['orientations'][0][0]
             timestamps = original_data_dict[key]['timestamps'][0][0][0]

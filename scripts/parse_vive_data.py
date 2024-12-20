@@ -60,7 +60,12 @@ def parse_and_organize_log_file(log_file_path):
 
     # Convert lists to numpy arrays
     for name in organized_data:
-        organized_data[name]['timestamps'] = np.array(organized_data[name]['timestamps'])
+        if '2' in name:
+            base_pose_name = name.replace('2', '')
+            if base_pose_name in organized_data:
+                organized_data[name]['timestamps'] = organized_data[base_pose_name]['timestamps']
+        else:
+            organized_data[name]['timestamps'] = np.array(organized_data[name]['timestamps'])
         organized_data[name]['positions'] = np.array(organized_data[name]['positions'])
         organized_data[name]['orientations'] = np.array(organized_data[name]['orientations'])
 

@@ -11,12 +11,12 @@ def parse_and_organize_log_file(log_file_path):
     timestamps = []
     with open(log_file_path, 'r') as file:
         for line in file:
-            if (('dec10_2024' in log_file_path) or ('dec12_2024' in log_file_path)) and ('leader' in log_file_path):
+            if (('dec10_2024' in log_file_path) or ('dec12_2024' in log_file_path) or ('collaborative_payload_carrying' not in log_file_path)) and ('leader' in log_file_path):
                 match = re.search(r'0 (\d+\.\d+) "iFeelSuit::" \(\((.*)\)\)', line)
             else:
                 match = re.search(r'0 (\d+\.\d+) (\d+\.\d+) "iFeelSuit::" \(\((.*)\)\)', line)
             if match:
-                if (('dec10_2024' in log_file_path) or ('dec12_2024' in log_file_path)) and ('leader' in log_file_path):
+                if (('dec10_2024' in log_file_path) or ('dec12_2024' in log_file_path) or ('collaborative_payload_carrying' not in log_file_path)) and ('leader' in log_file_path):
                     pose_timestamp = float(match.group(1))
                     poses = match.group(2)
                 else:

@@ -41,6 +41,8 @@ class FloorContactTask:
     """Class for storing a sequence of forces of a floor contact task."""
 
     name: str
+    positions: List[float]
+    orientations: List[float]
     forces: List[float]
 
 @dataclass
@@ -69,15 +71,15 @@ class MocapMetadata:
     and links considered in the data collection as well as the root link of the model.
     """
 
-    start_ind: int = 0
-    end_ind: int = -1
+    start_time: int = 0.0
+    end_time: int = 1.0
     metadata: Dict = field(default_factory=dict)
 
     @staticmethod
-    def build(start_ind: int = 0, end_ind: int = -1) -> "MocapMetadata":
+    def build(start_time: int = 0, end_time: int = 1.0) -> "MocapMetadata":
         """Build an empty MocapMetadata."""
 
-        return MocapMetadata(start_ind=start_ind, end_ind=end_ind)
+        return MocapMetadata(start_time=start_time, end_time=end_time)
 
     def add_timestamp(self) -> None:
         """Indicate that the data samples are associated with timestamps."""
