@@ -159,6 +159,15 @@ else:
 initial_transform = idyn.Transform(motiondata.initial_base_pose)
 kindyn.setWorldBaseTransform(initial_transform)
 
+# Define the ground offset for feet
+# Get the height of the front foot frame off the ground
+if retarget_leader:
+    foot_ref_frame = "RightToe"
+else:
+    foot_ref_frame = "r_foot_front"
+foot_height = utils.idyn_transform_to_np(kindyn.getWorldTransform(foot_ref_frame))[2,3]
+ground_offset = initial_base_height + foot_height
+
 humanIK.initialize(qp_ik_params, kindyn)
 humanIK.setDt(0.01)
 
@@ -173,7 +182,8 @@ retargeter = ifeel_data_retargeter.WBGR.build(motiondata=motiondata,
                                                 joint_names=joint_names,
                                                 kindyn=kindyn,
                                                 initial_base_height=initial_base_height,
-                                                retarget_leader=retarget_leader)
+                                                retarget_leader=retarget_leader,
+                                                ground_offset=ground_offset)
 
 # Retrieve ik solutions
 timestamps, ik_solutions = retargeter.retarget()

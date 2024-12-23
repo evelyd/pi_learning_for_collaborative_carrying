@@ -152,6 +152,7 @@ class WBGR:
     initial_base_height: float
     humanIK: baf.ik.HumanIK
     retarget_leader: bool = False
+    ground_offset: float = 0.0
 
     @staticmethod
     def build(motiondata: motion_data.MotionData,
@@ -161,11 +162,12 @@ class WBGR:
               kindyn: idyn.KinDynComputations,
               mirroring: bool = False,
               initial_base_height: float = 0.0,
-              retarget_leader: bool = False) -> "WBGR":
+              retarget_leader: bool = False,
+              ground_offset: float = 0.0) -> "WBGR":
         """Build an instance of WBGR."""
 
         return WBGR(motiondata=motiondata, metadata=metadata, joint_names=joint_names, kindyn=kindyn, initial_base_height=initial_base_height, humanIK=humanIK,
-                    retarget_leader=retarget_leader)
+                    retarget_leader=retarget_leader, ground_offset=ground_offset)
 
     def retarget(self) -> (List, List):
         """Apply Whole-Body Geometric Retargeting (WBGR)."""
@@ -262,6 +264,10 @@ class WBGR:
 
                     # Get the angular velocity data in manif SO3Tangent format
                     I_omega_IMU_manif = manif.SO3Tangent(np.zeros(3))
+
+                    # Add the ground offset to the goal position
+                    height_offset = 0.1
+                    I_position[2] += self.ground_offset + height_offset
 
                     assert self.humanIK.updateFloorContactTask(node_number, force, I_position, I_R_IMU_manif, I_linear_velocity, I_omega_IMU_manif, foot_height)
 
